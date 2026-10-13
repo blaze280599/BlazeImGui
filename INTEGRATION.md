@@ -4,8 +4,11 @@ This file tells an AI coding agent (or a human) exactly how to add the BlazeImGu
 project. Follow the steps in order. Every API named here exists; if something is not listed, use plain
 ImGui.NET — it is themed automatically.
 
-> **Location of this library:** `C:\Users\blazi\Desktop\AI Projects\BlazeImGui`
+> **Source of this library:** `C:\Users\blazi\Desktop\AI Projects\BlazeImGui` · https://gitlab.com/Blvckberry/BlazeImGui
 > **Library project:** `src\BlazeImGui\BlazeImGui.csproj` · **Working example:** `samples\BlazeImGui.Demo\DemoOverlay.cs`
+>
+> **Rule:** the library is *copied into* each project that uses it (section 2), so every project builds on
+> its own from a plain clone. Never reference this folder from another repository.
 
 ---
 
@@ -19,7 +22,7 @@ ImGui.NET — it is themed automatically.
 * `Ui` — animated, themed widgets (toggles, sliders, buttons, segmented control, combo, inputs, color
   pickers, keybinds, cards, sections, grids, badges, stats, progress, spinner, tooltips, line chart).
 * `Theme` — dark + light palettes with an animated cross-fade and a configurable accent color.
-* `Fonts` — Inter (Regular/Medium/SemiBold) with the Lucide icon font merged into every size.
+* `Fonts` — Inter (Regular/Medium/SemiBold, plus Bold on request) with the Lucide icon font merged into every size.
 * `Icons` — 1,544 Lucide icon constants (`Icons.Settings`, `Icons.Eye`, …).
 * `Notify` — toast notifications, callable from any thread.
 
@@ -39,26 +42,55 @@ versions, keep or remove them (they flow transitively from BlazeImGui). If they 
 versions**, change them to the versions above (or change both projects together) — mixed versions break
 at runtime.
 
-## 2. Reference the library
+## 2. Copy the library into the target project (default)
 
-**Option A — reference in place (default).** Add to the target `.csproj`:
+**Copy the library source into the target repository and reference the copy.** The target must build from
+a plain `git clone` on any machine, without this BlazeImGui folder existing next to it. Do **not** point a
+`ProjectReference` at a path outside the target repository (absolute paths or `..\..\BlazeImGui\...`):
+it works on this PC only and breaks for every other clone. Do not use a git submodule unless the user asks.
 
-```xml
-<ItemGroup>
-  <ProjectReference Include="C:\Users\blazi\Desktop\AI Projects\BlazeImGui\src\BlazeImGui\BlazeImGui.csproj" />
-</ItemGroup>
-```
+1. **Copy** `src\BlazeImGui` (code + `Assets\Fonts`, which include the font licenses) to a `BlazeImGui`
+   folder at the target repository root, **without** `bin` and `obj`:
 
-Prefer a relative path when both folders sit side by side, e.g. from
-`AI Projects\MyOverlay\MyOverlay\MyOverlay.csproj`:
-`..\..\BlazeImGui\src\BlazeImGui\BlazeImGui.csproj`.
+   ```powershell
+   robocopy "C:\Users\blazi\Desktop\AI Projects\BlazeImGui\src\BlazeImGui" "<target-repo>\BlazeImGui" /E /XD bin obj
+   ```
 
-**Option B — vendor a copy** (for a self-contained repo): copy the folder `src\BlazeImGui` into the target
-repo (e.g. `external\BlazeImGui`) and reference that `.csproj` instead. Do not copy `bin`/`obj`.
+   (robocopy exit codes 0–7 mean success.) If this folder is not available, get the source from
+   `git clone https://gitlab.com/Blvckberry/BlazeImGui.git` into a temporary folder and copy its
+   `src\BlazeImGui` the same way.
 
-If the target has a `.sln`, also run: `dotnet sln <Solution>.sln add <path-to>\BlazeImGui.csproj`
+2. **Reference the copy** from the app's `.csproj` with a path *inside* the repository, e.g. for
+   `<target-repo>\MyOverlay\MyOverlay.csproj`:
 
-Then `dotnet build` once to confirm the reference resolves before writing UI code.
+   ```xml
+   <ItemGroup>
+     <!-- Menu, theme, fonts and widgets: a copy of the BlazeImGui library kept in this repository. -->
+     <ProjectReference Include="..\BlazeImGui\BlazeImGui.csproj" />
+   </ItemGroup>
+   ```
+
+   If the target has a `.sln`, also run: `dotnet sln <Solution>.sln add BlazeImGui\BlazeImGui.csproj`
+
+3. **Record where the copy came from** in `<target-repo>\BlazeImGui\README.md`: the BlazeImGui commit
+   (`git -C <BlazeImGui folder> log -1 --format=%h`), a link to https://gitlab.com/Blvckberry/BlazeImGui,
+   and that updates are made by copying a newer `src\BlazeImGui` over this folder (fixes made in the copy
+   should also go upstream so the copies don't drift).
+
+4. **Make sure build output is ignored:** the target's `.gitignore` must cover `**/bin/` and `**/obj/`
+   (add them if missing), and `imgui.ini`.
+
+5. `dotnet build` once to confirm the reference resolves before writing UI code.
+
+6. **Prove it is self-contained** after committing: clone the repository into an empty temporary folder
+   and build there — it must succeed with no BlazeImGui folder beside it:
+
+   ```powershell
+   git clone <target-repo> "$env:TEMP\clone-check"; dotnet build "$env:TEMP\clone-check\<path-to-app>.csproj"
+   ```
+
+> Working on BlazeImGui itself (not integrating it)? Then edit `src\BlazeImGui` here, and re-copy it into
+> projects that use it.
 
 ## 3. Create the overlay
 
@@ -368,7 +400,7 @@ Keep the project's data/sampling code unchanged — only the presentation layer 
 
 ## 11. Verify
 
-1. `dotnet build` — no errors.
+1. `dotnet build` — no errors, and a fresh clone in an empty folder also builds (section 2, step 6).
 2. Run the app: the menu appears centered and fades in; Insert hides/shows it; End exits.
 3. Click every page: pages fade in, the sidebar pill glides, and widgets respond.
 4. Switch Light/Dark in the sidebar: all colors cross-fade, nothing stays dark-on-dark or light-on-light

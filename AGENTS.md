@@ -1,6 +1,8 @@
 # Agent instructions
 
-* **Adding this menu to another project?** Follow [INTEGRATION.md](INTEGRATION.md) step by step.
+* **Adding this menu to another project?** Follow [INTEGRATION.md](INTEGRATION.md) step by step. Copy
+  `src/BlazeImGui` into that project's repository and reference the copy; never reference this folder from
+  another repository, so every project builds on its own from a fresh clone.
 * **Changing the library itself?** Code lives in `src/BlazeImGui`; `samples/BlazeImGui.Demo/DemoOverlay.cs`
   exercises every widget. Build with `dotnet build BlazeImGui.sln`.
 * Widgets read colors only from `Theme.Colors` tokens and pack them with `Theme.U32` (so theme switches and

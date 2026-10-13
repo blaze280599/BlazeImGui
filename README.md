@@ -25,8 +25,11 @@ A reusable, minimal and modern ImGui menu base for C# transparent overlays
 
 ## Quick start
 
+Copy `src/BlazeImGui` into your repository (without `bin`/`obj`) and reference the copy, so your project
+builds from a plain clone on any machine:
+
 ```xml
-<ProjectReference Include="..\..\BlazeImGui\src\BlazeImGui\BlazeImGui.csproj" />
+<ProjectReference Include="..\BlazeImGui\BlazeImGui.csproj" />
 ```
 
 ```csharp
