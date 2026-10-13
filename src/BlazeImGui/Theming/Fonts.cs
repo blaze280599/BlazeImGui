@@ -4,7 +4,7 @@ using ImGuiNET;
 namespace BlazeImGui;
 
 /// <summary>
-/// The embedded Inter typeface (Regular, Medium, SemiBold) with the Lucide icon font merged into every size,
+/// The embedded Inter typeface (Regular, Medium, SemiBold; Bold via <see cref="Add"/>) with the Lucide icon font merged into every size,
 /// so icons can be mixed into any string: <c>ImGui.Text($"{Icons.Info}  Hello")</c>.
 /// Switch fonts with <c>ImGui.PushFont(Fonts.SemiBold)</c> / <c>ImGui.PopFont()</c>.
 /// </summary>
@@ -29,7 +29,7 @@ public static unsafe class Fonts
     public static float BodySize { get; private set; }
 
     private static IntPtr _textRanges, _iconRanges;
-    private static byte[]? _regular, _medium, _semibold, _icons;
+    private static byte[]? _regular, _medium, _semibold, _bold, _icons;
 
     /// <summary>
     /// Adds every font to the atlas. Called from the overlay's font callback (<c>ReplaceFont</c>);
@@ -70,6 +70,7 @@ public static unsafe class Fonts
         {
             FontWeight.Medium => _medium ??= Resource("Inter-Medium.ttf"),
             FontWeight.SemiBold => _semibold ??= Resource("Inter-SemiBold.ttf"),
+            FontWeight.Bold => _bold ??= Resource("Inter-Bold.ttf"),
             _ => _regular ??= Resource("Inter-Regular.ttf"),
         };
         return AddText(text, _icons ??= Resource("lucide.ttf"), MathF.Round(size * Ui.Scale));
@@ -144,4 +145,4 @@ public static unsafe class Fonts
 }
 
 /// <summary>Inter weights embedded in the library.</summary>
-public enum FontWeight { Regular, Medium, SemiBold }
+public enum FontWeight { Regular, Medium, SemiBold, Bold }

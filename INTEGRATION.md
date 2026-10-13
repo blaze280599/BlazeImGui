@@ -242,7 +242,7 @@ shows tables, trees, tabs, list boxes, modals and native plots.
 * **Fonts:** `Fonts.Regular` (default), `Medium`, `SemiBold`, `Small`, `SmallSemiBold`, `Heading`, `IconLarge`.
   Switch with `ImGui.PushFont(Fonts.SemiBold); … ImGui.PopFont();`. Draw-list text with a font:
   `draw.AddText(Fonts.SemiBold, Fonts.SemiBold.FontSize, pos, col, text)`. Extra sizes only via
-  `OnLoadFonts()` + `Fonts.Add(FontWeight.X, px)`.
+  `OnLoadFonts()` + `Fonts.Add(FontWeight.Regular/Medium/SemiBold/Bold, px)`.
 * **Icons:** the constant is the [lucide.dev/icons](https://lucide.dev/icons) name in PascalCase
   (`"chevron-right"` → `Icons.ChevronRight`; names starting with a digit get `_`). Find one with
   `grep -n "Name" src/BlazeImGui/Icons.g.cs`. Icons work in any string in any font:
