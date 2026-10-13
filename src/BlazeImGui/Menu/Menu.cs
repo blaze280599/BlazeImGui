@@ -208,12 +208,15 @@ public sealed class Menu
         var footer = height - pad - ImGui.GetFrameHeight();
         if (SidebarFooter is not null)
         {
-            ImGui.SetCursorPos(new Vector2(pad, Math.Max(y, footer - 80f * scale)));
+            // Sits just above the theme switch, using the height it took on the previous frame.
+            var bottom = ShowThemeSwitch ? footer - 10f * scale : height - pad;
+            ImGui.SetCursorPos(new Vector2(pad, Math.Max(y + 8f * scale, bottom - _footerHeight)));
             ImGui.PushItemWidth(itemWidth);
             ImGui.BeginGroup();
             SidebarFooter();
             ImGui.EndGroup();
             ImGui.PopItemWidth();
+            _footerHeight = ImGui.GetItemRectSize().Y;
         }
         if (ShowThemeSwitch)
         {
@@ -285,4 +288,5 @@ public sealed class Menu
     }
 
     private float _lastActionsWidth;
+    private float _footerHeight;
 }

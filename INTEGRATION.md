@@ -351,7 +351,9 @@ Keep the project's data/sampling code unchanged — only the presentation layer 
 2. **ImGui calls only on the render thread** (inside the overrides above). From other threads, only
    `Notify.Show` is safe; otherwise publish data to fields and read them in `OnUpdate`/pages.
 3. **Unique IDs:** two widgets with the same label in one window collide. Add `##suffix`, or wrap in
-   `ImGui.PushID(i)` / `PopID()` inside loops.
+   `ImGui.PushID(i)` / `PopID()` inside loops. **Labels with live values** (`$"Health {hp}"`) change their
+   ID every frame, which restarts animations — end them with a fixed `###id`:
+   `Ui.Progress(f, $"Health  {hp:N0} / {max:N0}###health")` (only the part after `###` is the ID).
 4. **Pairing:** every `BeginCard` needs `EndCard`; `BeginGrid`/`BeginTable`/`BeginTabBar`/`TreeNode`
    need their `End*` only when they returned true; `PushFont`/`PushStyleColor`/`PushStyleVar`/`PushID`
    need their pops in the same frame.
