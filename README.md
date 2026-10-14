@@ -59,6 +59,8 @@ await overlay.Run();
 
 **Full integration instructions (written for AI agents): [INTEGRATION.md](INTEGRATION.md).**
 
+**C++ / native Dear ImGui (1.92+)?** The same menu as a C++ library: [cpp/README.md](cpp/README.md).
+
 ## Demo
 
 ```bash

@@ -1,7 +1,8 @@
 # BlazeImGui — Integration Guide for AI Agents
 
 This file tells an AI coding agent (or a human) exactly how to add the BlazeImGui menu to a C# overlay
-project. Follow the steps in order. Every API named here exists; if something is not listed, use plain
+project. **Native C++ / Dear ImGui project (a hook, an internal overlay)?** Use the C++ port instead:
+follow [cpp/README.md](cpp/README.md). Follow the steps in order. Every API named here exists; if something is not listed, use plain
 ImGui.NET — it is themed automatically.
 
 > **Source of this library:** `C:\Users\blazi\Desktop\AI Projects\BlazeImGui` · https://gitlab.com/Blvckberry/BlazeImGui
