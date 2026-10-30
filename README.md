@@ -68,6 +68,8 @@ await overlay.Run();
 
 **C++ / native Dear ImGui (1.92+)?** The same menu as a C++ library: [cpp/README.md](cpp/README.md).
 
+**Rust?** The same menu as a crate on `dear-imgui-rs`: [rust/README.md](rust/README.md).
+
 ## Demo
 
 ```bash
@@ -92,7 +94,11 @@ src/BlazeImGui/
   Icons.g.cs             generated Lucide constants
   Assets/Fonts/          Inter + Lucide (embedded)
 samples/BlazeImGui.Demo  every widget on one overlay
+cpp/                     C++ port (Dear ImGui 1.92+)
+rust/                    Rust port (dear-imgui-rs)
 tools/generate-icons.ps1 refresh the icon font + constants
+tools/generate-cpp.ps1   regenerate the C++ icons + embedded fonts
+tools/generate-rust.ps1  regenerate the Rust icons + copy the fonts
 ```
 
 ## Licenses

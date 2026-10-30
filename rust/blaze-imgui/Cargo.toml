@@ -1,0 +1,18 @@
+[package]
+name = "blaze-imgui"
+version = "0.1.0"
+edition = "2021"
+description = "BlazeImGui for Rust: the BlazeImGui menu (icon rail, tabs, status column, themes, animated widgets) on dear-imgui-rs"
+license = "MIT"
+publish = false
+
+[dependencies]
+dear-imgui-rs = "0.21"
+
+[dev-dependencies]
+dear-imgui-winit = "0.21"
+dear-imgui-glow = "0.21"
+winit = "0.30"
+glutin = "0.32"
+glutin-winit = "0.5"
+raw-window-handle = "0.6"
