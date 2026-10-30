@@ -30,6 +30,8 @@ public sealed class Palette
     public Vector4 OnAccent;
     /// <summary>Knob color of toggles and sliders.</summary>
     public Vector4 Knob;
+    /// <summary>The brand mark's dot: a small splash of color the rest of the menu stays neutral around.</summary>
+    public Vector4 Brand;
     public Vector4 Success, Warning, Danger;
 
     public Palette Clone() => (Palette)MemberwiseClone();
@@ -54,7 +56,7 @@ public sealed class Palette
             Border = L(a.Border, b.Border, t), Raised = L(a.Raised, b.Raised, t),
             Text = L(a.Text, b.Text, t), TextMuted = L(a.TextMuted, b.TextMuted, t), TextFaint = L(a.TextFaint, b.TextFaint, t),
             Accent = L(a.Accent, b.Accent, t), AccentHover = L(a.AccentHover, b.AccentHover, t), OnAccent = L(a.OnAccent, b.OnAccent, t),
-            Knob = L(a.Knob, b.Knob, t),
+            Knob = L(a.Knob, b.Knob, t), Brand = L(a.Brand, b.Brand, t),
             Success = L(a.Success, b.Success, t), Warning = L(a.Warning, b.Warning, t), Danger = L(a.Danger, b.Danger, t),
         };
     }
@@ -80,47 +82,49 @@ public sealed class Palette
 
     public static Palette DefaultDark => new()
     {
-        Background = Hex("#111216"),
-        Sidebar = Hex("#0C0D10"),
-        Surface = Hex("#17181D"),
-        Elevated = Hex("#1B1C22"),
-        Field = Hex("#22242B"),
-        FieldHover = Hex("#2A2C34"),
-        FieldActive = Hex("#31343D"),
-        Raised = Hex("#383B45"),
-        Border = Hex("#FFFFFF", .07f),
-        Text = Hex("#ECEDF0"),
-        TextMuted = Hex("#959AA4"),
-        TextFaint = Hex("#62666F"),
-        Accent = Hex("#6D8CFF"),
-        AccentHover = Hex("#8199FF"),
-        OnAccent = Hex("#FFFFFF"),
-        Knob = Hex("#FFFFFF"),
+        Background = Hex("#17171B"),
+        Sidebar = Hex("#17171B"),
+        Surface = Hex("#1D1D22"),
+        Elevated = Hex("#202026"),
+        Field = Hex("#2A2A31"),
+        FieldHover = Hex("#313139"),
+        FieldActive = Hex("#393941"),
+        Raised = Hex("#33333B"),
+        Border = Hex("#FFFFFF", .08f),
+        Text = Hex("#E7E7EB"),
+        TextMuted = Hex("#8C8C96"),
+        TextFaint = Hex("#56565F"),
+        Accent = Hex("#E7E7EB"),
+        AccentHover = Hex("#FFFFFF"),
+        OnAccent = Hex("#17171B"),
+        Knob = Hex("#F2F2F5"),
+        Brand = Hex("#FF5C9D"),
         Success = Hex("#3DD68C"),
-        Warning = Hex("#F5B74F"),
+        Warning = Hex("#F5A524"),
         Danger = Hex("#FF6B6B"),
     };
 
     public static Palette DefaultLight => new()
     {
-        Background = Hex("#FFFFFF"),
-        Sidebar = Hex("#F6F7F9"),
-        Surface = Hex("#F7F8FA"),
-        Elevated = Hex("#FFFFFF"),
-        Field = Hex("#EDEFF3"),
-        FieldHover = Hex("#E4E7EC"),
-        FieldActive = Hex("#DADEE5"),
-        Raised = Hex("#FFFFFF"),
-        Border = Hex("#0B0D12", .09f),
-        Text = Hex("#15171C"),
-        TextMuted = Hex("#646A75"),
-        TextFaint = Hex("#9AA0AA"),
-        Accent = Hex("#4F6EF7"),
-        AccentHover = Hex("#4262EE"),
-        OnAccent = Hex("#FFFFFF"),
-        Knob = Hex("#FFFFFF"),
-        Success = Hex("#16A36A"),
-        Warning = Hex("#D9891A"),
+        Background = Hex("#ECECF0"),
+        Sidebar = Hex("#ECECF0"),
+        Surface = Hex("#F3F3F6"),
+        Elevated = Hex("#F7F7F9"),
+        Field = Hex("#E1E1E6"),
+        FieldHover = Hex("#D9D9DF"),
+        FieldActive = Hex("#CFCFD6"),
+        Raised = Hex("#F9F9FB"),
+        Border = Hex("#0B0B12", .10f),
+        Text = Hex("#2B2B30"),
+        TextMuted = Hex("#8E8E98"),
+        TextFaint = Hex("#B6B6BF"),
+        Accent = Hex("#2B2B30"),
+        AccentHover = Hex("#3B3B41"),
+        OnAccent = Hex("#F3F3F6"),
+        Knob = Hex("#F9F9FB"),
+        Brand = Hex("#FF5C9D"),
+        Success = Hex("#2EA44F"),
+        Warning = Hex("#E8820C"),
         Danger = Hex("#E5484D"),
     };
 }

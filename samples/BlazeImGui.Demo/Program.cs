@@ -1,10 +1,10 @@
 using BlazeImGui;
 using BlazeImGui.Demo;
 
-// Usage: BlazeImGui.Demo.exe [--theme light|dark] [--page "Controls"] [--backdrop] [--toast]
+// Usage: BlazeImGui.Demo.exe [--theme light|dark] [--page "Controls" | "Controls/Sliders"] [--backdrop] [--toast]
 //   --backdrop paints a solid backdrop behind the menu (for screenshots); normally the overlay is transparent.
 //   Insert toggles the menu, End exits.
-var theme = args.SkipWhile(a => a != "--theme").Skip(1).FirstOrDefault() == "light" ? ThemeMode.Light : ThemeMode.Dark;
+var theme = args.SkipWhile(a => a != "--theme").Skip(1).FirstOrDefault() == "dark" ? ThemeMode.Dark : ThemeMode.Light;
 var page = args.SkipWhile(a => a != "--page").Skip(1).FirstOrDefault();
 var backdrop = args.Contains("--backdrop");
 if (args.Contains("--toast"))

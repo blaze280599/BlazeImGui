@@ -8,18 +8,22 @@ internal sealed class DemoOverlay : BlazeOverlay
 {
     private readonly bool _backdrop;
 
-    // Controls
+    // Visuals
     private bool _esp = true, _names = true, _boxes, _health = true, _hideUnfocused;
+    private float _distance = 250f, _opacity = .8f;
+    private int _fov = 90;
+    private Vector4 _enemyColor = Palette.Hex("#FF6B6B"), _allyColor = Palette.Hex("#3DD68C"), _textColor = new(1, 1, 1, .9f);
+
+    // Controls
     private bool _checkA = true, _checkB, _checkC = true;
-    private float _distance = 250f, _opacity = .8f, _smoothing = 4.5f;
-    private int _fov = 90, _quality = 1, _menuKey = (int)VirtualKey.Insert, _aimKey = (int)VirtualKey.XButton2;
+    private float _smoothing = 4.5f;
+    private int _quality = 1, _menuKey = (int)VirtualKey.Insert, _aimKey = (int)VirtualKey.XButton2;
 
     // Inputs
     private int _mode, _radio = 1, _listItem = 2;
     private string _name = "", _notes = "Multiline text\nworks too.";
     private float _drag = 12.5f;
     private int _dragInt = 64;
-    private Vector4 _enemyColor = Palette.Hex("#FF6B6B"), _allyColor = Palette.Hex("#3DD68C"), _textColor = new(1, 1, 1, .9f);
 
     // Data
     private readonly List<Player> _players =
@@ -37,33 +41,50 @@ internal sealed class DemoOverlay : BlazeOverlay
     private float _seriesClock;
 
     // Settings
-    private int _accent;
-    private static readonly (string Name, Vector4 Color)[] Accents =
-    [
-        ("Indigo", Palette.Hex("#6D8CFF")), ("Blue", Palette.Hex("#3B82F6")), ("Violet", Palette.Hex("#8B5CF6")),
-        ("Teal", Palette.Hex("#14B8A6")), ("Green", Palette.Hex("#22C55E")), ("Amber", Palette.Hex("#F59E0B")),
-        ("Rose", Palette.Hex("#F43F5E")),
-    ];
-    private bool _crosshair, _watermark = true;
+    private bool _crosshair, _watermark = true, _dirty;
     private ImFontPtr _hudFont;
 
     public DemoOverlay(ThemeMode theme, string? page, bool backdrop)
-        : base(new OverlayOptions { Title = "Blaze", Subtitle = "ImGui overlay base", Logo = Icons.Flame, Theme = theme })
+        : base(new OverlayOptions { Title = "blaze", Subtitle = "overlay", Version = "v1.0.0", Theme = theme })
     {
         _backdrop = backdrop;
         for (var i = 0; i < _series.Length; i++) _series[i] = Sample(i * .08f - _series.Length * .08f);
-        Menu.AddPage("Dashboard", Icons.LayoutDashboard, DrawDashboard, "Overview of the session", group: "Overview");
-        Menu.AddPage("Controls", Icons.ToggleRight, DrawControls, "Toggles, sliders, buttons and keybinds", group: "Widgets");
-        Menu.AddPage("Inputs", Icons.TextCursorInput, DrawInputs, "Dropdowns, fields, colors and choices", group: "Widgets");
-        Menu.AddPage("Data", Icons.Table2, DrawData, "Tables, trees and tabs", group: "Widgets");
-        Menu.AddPage("Charts", Icons.ChartSpline, DrawCharts, "Live line charts and native plots", group: "Widgets").Badge = "New";
-        Menu.AddPage("Feedback", Icons.Bell, DrawFeedback, "Toasts, modals, tooltips and progress", group: "Widgets");
-        Menu.AddPage("Settings", Icons.Settings, DrawSettings, "Appearance and hotkeys", group: "App");
+
+        var visuals = Menu.AddPage("Visuals", Icons.Eye, "Overlay");
+        visuals.AddTab("General", DrawVisualsGeneral, "What is drawn over the game. Hover a setting to read about it here.");
+        visuals.AddTab("Colors", DrawVisualsColors, "Colors used by the world drawings.");
+
+        var controls = Menu.AddPage("Controls", Icons.Crosshair, "Widgets");
+        controls.AddTab("Toggles", DrawToggles, "Checkbox rows for settings, compact checkboxes for several on one line.");
+        controls.AddTab("Sliders", DrawSliders, "The value sits in the box, drag anywhere on the track.");
+        controls.AddTab("Buttons", DrawButtons, "Outlined by default; primary is filled with the ink color.");
+        controls.AddTab("Keybinds", DrawKeybinds, "Click, then press a key. Esc cancels, Backspace clears.");
+
+        var inputs = Menu.AddPage("Inputs", Icons.TextCursorInput, "Fields");
+        inputs.AddTab("Fields", DrawFields, "Dropdowns, text and number fields.");
+        inputs.AddTab("Choices", DrawChoices, "Native ImGui choices, themed.");
+
+        var data = Menu.AddPage("Data", Icons.Table2, "Tables");
+        data.AddTab("Table", DrawTable, "A sortable native ImGui table. Click a header to sort.");
+        data.AddTab("Tree", DrawTree, "Tree nodes and collapsing headers.");
+
+        var charts = Menu.AddPage("Charts", Icons.ChartSpline, "Live data");
+        charts.AddTab("Live", DrawLive, "Ui.LineChart with a hover readout.");
+        charts.AddTab("Native", DrawNative, "ImGui.PlotLines and PlotHistogram under the theme.");
+        charts.Badge = true;
+
+        var feedback = Menu.AddPage("Feedback", Icons.Bell, "Messages");
+        feedback.AddTab("Toasts", DrawToasts, "Toasts stack in the corner and fade out on their own.");
+        feedback.AddTab("Progress", DrawProgress, "Progress bars, a spinner and badges.");
+        feedback.AddTab("Dialogs", DrawDialogs, "Modals and tooltips.");
+
+        var settings = Menu.AddPage("Settings", Icons.Settings, "Menu");
+        settings.AddTab("General", DrawSettings, "Theme, hotkeys and the config file.");
+        settings.PinBottom = true;
+        settings.Status = DrawConfigStatus;
+
+        Menu.Status = DrawSessionStatus;
         if (page is not null) Menu.Select(page);
-        Menu.HeaderActions = () =>
-        {
-            if (Ui.IconButton(Icons.Search, "##search", "Search")) Notify.Show("Search", "Hook this up to your own command palette.");
-        };
     }
 
     // Extra font sizes are added while the atlas is built; keep the returned font in a field.
@@ -89,8 +110,8 @@ internal sealed class DemoOverlay : BlazeOverlay
         if (_backdrop)
         {
             // Only for screenshots: a quiet backdrop instead of whatever is behind the transparent overlay.
-            var top = Theme.IsDark ? Palette.Hex("#2A2F3A") : Palette.Hex("#C9CFDA");
-            var bottom = Theme.IsDark ? Palette.Hex("#15171C") : Palette.Hex("#E9ECF1");
+            var top = Palette.Hex("#1C1622");
+            var bottom = Palette.Hex("#0F0E14");
             var t = ImGui.ColorConvertFloat4ToU32(top);
             var b = ImGui.ColorConvertFloat4ToU32(bottom);
             draw.AddRectFilledMultiColor(Vector2.Zero, display, t, t, b, b);
@@ -100,13 +121,13 @@ internal sealed class DemoOverlay : BlazeOverlay
         }
         if (_watermark)
         {
-            var text = $"{Icons.Flame}  Blaze  ·  {ImGui.GetIO().Framerate:0} fps";
+            var text = $"blaze  ·  {ImGui.GetIO().Framerate:0} fps";
             ImGui.PushFont(_hudFont);
             var size = ImGui.CalcTextSize(text);
             ImGui.PopFont();
             var pos = new Vector2(16, 16);
-            draw.AddRectFilled(pos, pos + size + new Vector2(20, 12), Theme.U32(Theme.Colors.Background, .92f), 8);
-            draw.AddRect(pos, pos + size + new Vector2(20, 12), Theme.U32(Theme.Colors.Border), 8);
+            draw.AddRectFilled(pos, pos + size + new Vector2(20, 12), Theme.U32(Theme.Colors.Background, .94f), 6);
+            draw.AddRect(pos, pos + size + new Vector2(20, 12), Theme.U32(Theme.Colors.Border), 6);
             draw.AddText(_hudFont, _hudFont.FontSize, pos + new Vector2(10, 6), Theme.U32(Theme.Colors.Text), text);
         }
         if (_crosshair)
@@ -118,118 +139,108 @@ internal sealed class DemoOverlay : BlazeOverlay
         }
     }
 
-    // ------------------------------------------------------------------ pages
+    // ------------------------------------------------------------------ status column
 
-    private void DrawDashboard()
+    private void DrawSessionStatus()
     {
-        if (Ui.BeginGrid("stats", 3))
-        {
-            Ui.NextCell(); Ui.Stat("Players tracked", "128", "+12%", Tone.Success, Icons.Users);
-            Ui.NextCell(); Ui.Stat("Frame time", "2.4 ms", "-0.3", Tone.Success, Icons.Gauge);
-            Ui.NextCell(); Ui.Stat("Memory reads", "4.1k/s", "+8%", Tone.Warning, Icons.Cpu);
-            Ui.EndGrid();
-        }
-        ImGui.Spacing();
-        Ui.BeginCard("activity", "Activity", Icons.Activity);
-        Ui.SameLineRight(Ui.BadgeSize("Live").X);
-        Ui.Badge("Live", Tone.Success);
-        Ui.LineChart("##activity", _series, 130, 0, 100);
-        Ui.EndCard();
-        ImGui.Spacing();
-        if (Ui.BeginGrid("lower", 2))
-        {
-            Ui.NextCell();
-            Ui.BeginCard("status", "Status", Icons.CircleCheck);
-            Ui.Progress(.72f, "Memory scan");
-            ImGui.Spacing();
-            Ui.Progress(.38f, "Offsets verified", Tone.Warning);
-            ImGui.Spacing();
-            Ui.Progress(1f, "Renderer", Tone.Success);
-            Ui.EndCard();
-            Ui.NextCell();
-            Ui.BeginCard("quick", "Quick actions", Icons.Zap);
-            Ui.Toggle("Visuals", ref _esp);
-            Ui.Toggle("Crosshair", ref _crosshair);
-            if (Ui.Button($"{Icons.RefreshCw}  Reload", ButtonKind.Secondary, new Vector2(-1, 0)))
-                Notify.Show("Reloaded", "Offsets and settings were reloaded.", Tone.Success);
-            Ui.EndCard();
-            Ui.EndGrid();
-        }
+        Ui.Caption("Session");
+        Ui.Readout("Overlay", "running", Tone.Success);
+        Ui.Readout("Frame rate", $"{ImGui.GetIO().Framerate:0} fps");
+        Ui.Readout("Visuals", _esp ? "drawing" : "off", _esp ? Tone.Success : Tone.Neutral);
+        Ui.Readout("Distance", $"{_distance:0} yd  (FOV {_fov})");
+        Ui.Readout("Players", $"{_players.Count(p => p.InCombat)} / {_players.Count} in combat");
+        Ui.Readout("Menu key", Input.KeyName(Options.MenuKey));
+        Ui.Readout("Theme", Theme.IsDark ? "dark" : "light");
     }
 
-    private void DrawControls()
+    private void DrawConfigStatus()
     {
-        Ui.Section("Toggles");
-        Ui.BeginCard("toggles");
-        Ui.Toggle("Enable visuals", ref _esp, "Draw players and objects in the world");
+        Ui.Caption("Config");
+        Ui.Readout("Menu key", Input.KeyName(_menuKey));
+        Ui.Readout("File", "blaze.ini");
+        Ui.Readout("Changes", _dirty ? "not saved" : "saved", _dirty ? Tone.Warning : Tone.Success);
+    }
+
+    // ------------------------------------------------------------------ pages
+
+    private void DrawVisualsGeneral()
+    {
+        _dirty |= Ui.Toggle("Enable visuals", ref _esp, "Draw players and objects in the world.");
         ImGui.BeginDisabled(!_esp);
-        Ui.Toggle("Names", ref _names);
-        Ui.Toggle("Bounding boxes", ref _boxes);
-        Ui.Toggle("Health bars", ref _health);
+        _dirty |= Ui.Slider("Max distance", ref _distance, 10, 500, "0", "Players further away than this are not drawn. 150 - 300 suits most maps.");
+        _dirty |= Ui.Slider("Field of view", ref _fov, 30, 180, "0", "How wide the drawn area is around the crosshair, in degrees.");
+        _dirty |= Ui.Toggle("Names", ref _names, "A name tag above each player.");
+        _dirty |= Ui.Toggle("Health bars", ref _health, "A thin bar beside each player, colored by health.");
         ImGui.EndDisabled();
-        Ui.Toggle("Hide when game is unfocused", ref _hideUnfocused);
-        Ui.EndCard();
+        _dirty |= Ui.Toggle("Hide when game is unfocused", ref _hideUnfocused, "Stops drawing while another window has focus.");
+    }
 
-        Ui.Section("Sliders");
-        Ui.BeginCard("sliders");
-        Ui.Slider("Max distance", ref _distance, 10, 500, "0 'yd'");
-        Ui.Slider("Field of view", ref _fov, 30, 180, "0'°'");
-        Ui.Slider("Opacity", ref _opacity, 0, 1, "0%");
-        Ui.Slider("Smoothing", ref _smoothing, 1, 10, "0.0", "Higher values ease movement more");
-        Ui.EndCard();
+    private void DrawVisualsColors()
+    {
+        Ui.Color("Enemy", ref _enemyColor, description: "Boxes, names and the crosshair for enemies.");
+        Ui.Color("Ally", ref _allyColor, description: "Boxes and names for your team.");
+        Ui.Color("Labels", ref _textColor, description: "Click a swatch to open the picker.");
+        Ui.Slider("Opacity", ref _opacity, 0, 1, "0%", "How see-through the world drawings are.");
+    }
 
-        Ui.Section("Buttons");
-        Ui.BeginCard("buttons");
-        if (Ui.Button($"{Icons.Save}  Save", ButtonKind.Primary)) Notify.Show("Saved", "Your settings were saved.", Tone.Success);
-        ImGui.SameLine();
-        Ui.Button($"{Icons.Copy}  Duplicate");
-        ImGui.SameLine();
+    private void DrawToggles()
+    {
+        Ui.Toggle("Bounding boxes", ref _boxes, "A box around every player.");
+        Ui.Toggle("Crosshair", ref _crosshair, "A small cross in the middle of the screen (drawn in DrawOverlay).");
+        ImGui.BeginDisabled();
+        var off = false;
+        Ui.Toggle("Disabled option", ref off, "Disabled controls fade out.");
+        ImGui.EndDisabled();
+        Ui.Section("Compact");
+        Ui.Checkbox("Players", ref _checkA); ImGui.SameLine(0, 18);
+        Ui.Checkbox("NPCs", ref _checkB); ImGui.SameLine(0, 18);
+        Ui.Checkbox("Objects", ref _checkC);
+    }
+
+    private void DrawSliders()
+    {
+        Ui.Slider("Smoothing", ref _smoothing, 1, 10, "0.0", "Higher values ease movement more. 3 - 6 feels natural.");
+        Ui.Slider("Max distance", ref _distance, 10, 500, "0", "Players further away than this are not drawn.");
+        Ui.Slider("Opacity", ref _opacity, 0, 1, "0%", "How see-through the world drawings are.");
+    }
+
+    private void DrawButtons()
+    {
+        if (Ui.Button("Save", ButtonKind.Secondary, new Vector2(Ui.ControlWidth, 0)))
+            Notify.Show("Saved", "Your settings were saved.", Tone.Success);
+        ImGui.Spacing();
+        if (Ui.Button("Primary", ButtonKind.Primary, new Vector2(Ui.ControlWidth, 0))) Notify.Show("Primary", "A filled button.");
+        ImGui.Spacing();
         Ui.Button("Ghost", ButtonKind.Ghost);
         ImGui.SameLine();
         if (Ui.Button($"{Icons.Trash2}  Delete", ButtonKind.Danger)) Notify.Show("Deleted", "Profile removed.", Tone.Danger);
         ImGui.SameLine();
         Ui.IconButton(Icons.Ellipsis, "##more", "More actions");
         ImGui.Spacing();
-        Ui.Segmented("##quality", ref _quality, ["Low", "Balanced", "High", "Ultra"]);
-        ImGui.Spacing();
-        Ui.Checkbox("Players", ref _checkA); ImGui.SameLine(0, 18);
-        Ui.Checkbox("NPCs", ref _checkB); ImGui.SameLine(0, 18);
-        Ui.Checkbox("Objects", ref _checkC);
-        Ui.EndCard();
-
-        Ui.Section("Keybinds");
-        Ui.BeginCard("keys");
-        Ui.Keybind("Toggle menu", ref _menuKey, "Click, then press a key. Esc cancels, Backspace clears.");
-        Ui.Keybind("Hold to aim", ref _aimKey);
-        Ui.EndCard();
+        Ui.Row("Quality");
+        Ui.Segmented("##quality", ref _quality, ["Low", "Mid", "High", "Ultra"]);
     }
 
-    private void DrawInputs()
+    private void DrawKeybinds()
     {
-        Ui.Section("Fields");
-        Ui.BeginCard("fields");
-        Ui.Combo("Mode", ref _mode, ["Automatic", "Manual", "Disabled"]);
-        Ui.TextInput("Profile name", ref _name, "e.g. Raid night");
-        Ui.Number("Offset", ref _drag, .1f, 0, 100, "%.1f");
+        Ui.Keybind("Toggle menu", ref _menuKey, "Click, then press a key. Esc cancels, Backspace clears.");
+        Ui.Keybind("Hold to aim", ref _aimKey, "Mouse buttons work too.");
+    }
+
+    private void DrawFields()
+    {
+        Ui.Combo("Mode", ref _mode, ["Automatic", "Manual", "Disabled"], "How the overlay picks its target.");
+        Ui.TextInput("Profile name", ref _name, "e.g. Raid night", description: "Shown in the config file.");
+        Ui.Number("Offset", ref _drag, .1f, 0, 100, "%.1f", "Drag, or double-click to type.");
         Ui.Number("Pool size", ref _dragInt, 1, 1, 512);
-        Ui.Row("Search");
-        ImGui.InputTextWithHint("##search", $"{Icons.Search}  Filter…", ref _name, 64);
-        Ui.EndCard();
+    }
 
-        Ui.Section("Colors");
-        Ui.BeginCard("colors");
-        Ui.Color("Enemy", ref _enemyColor);
-        Ui.Color("Ally", ref _allyColor);
-        Ui.Color("Labels", ref _textColor, description: "Click a swatch to open the picker");
-        Ui.EndCard();
-
-        Ui.Section("Choices");
-        Ui.BeginCard("choices");
+    private void DrawChoices()
+    {
         ImGui.RadioButton("Nearest", ref _radio, 0); ImGui.SameLine(0, 18);
-        ImGui.RadioButton("Lowest health", ref _radio, 1); ImGui.SameLine(0, 18);
+        ImGui.RadioButton("Health", ref _radio, 1); ImGui.SameLine(0, 18);
         ImGui.RadioButton("Crosshair", ref _radio, 2);
         ImGui.Spacing();
-        ImGui.SetNextItemWidth(-1);
         if (ImGui.BeginListBox("##list", new Vector2(-1, 120)))
         {
             string[] items = ["Overview", "Players", "Quests", "Professions", "Camera", "Diagnostics"];
@@ -239,69 +250,18 @@ internal sealed class DemoOverlay : BlazeOverlay
         }
         ImGui.Spacing();
         ImGui.InputTextMultiline("##notes", ref _notes, 1024, new Vector2(-1, 70));
-        Ui.EndCard();
-    }
-
-    private void DrawData()
-    {
-        if (ImGui.BeginTabBar("data-tabs"))
-        {
-            if (ImGui.BeginTabItem("Table"))
-            {
-                ImGui.Spacing();
-                DrawTable();
-                ImGui.EndTabItem();
-            }
-            if (ImGui.BeginTabItem("Tree"))
-            {
-                ImGui.Spacing();
-                if (ImGui.TreeNodeEx("World", ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
-                {
-                    if (ImGui.TreeNodeEx("Players", ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
-                    {
-                        foreach (var p in _players.Take(3))
-                            ImGui.TreeNodeEx($"{Icons.User}  {p.Name}", ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen | ImGuiTreeNodeFlags.SpanAvailWidth);
-                        ImGui.TreePop();
-                    }
-                    if (ImGui.TreeNodeEx("Objects", ImGuiTreeNodeFlags.SpanAvailWidth))
-                    {
-                        ImGui.TreeNodeEx($"{Icons.Box}  Chest", ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen);
-                        ImGui.TreePop();
-                    }
-                    ImGui.TreePop();
-                }
-                ImGui.Spacing();
-                if (ImGui.CollapsingHeader("Collapsing header", ImGuiTreeNodeFlags.DefaultOpen))
-                    Ui.Hint("Collapsing headers, tree nodes and selectables all use the theme's hover and accent colors.");
-                ImGui.EndTabItem();
-            }
-            if (ImGui.BeginTabItem("Details"))
-            {
-                ImGui.Spacing();
-                var p = _selectedRow >= 0 ? _players[_selectedRow] : _players[0];
-                Ui.BeginCard("details", p.Name, Icons.User);
-                Ui.Hint($"{p.Class} · Level {p.Level}");
-                ImGui.Spacing();
-                Ui.Progress(p.Health / 8000f, "Health", Tone.Success);
-                Ui.EndCard();
-                ImGui.EndTabItem();
-            }
-            ImGui.EndTabBar();
-        }
     }
 
     private void DrawTable()
     {
         const ImGuiTableFlags flags = ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.Sortable |
-                                      ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY | ImGuiTableFlags.PadOuterX;
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new Vector2(10, 8));
-        var open = ImGui.BeginTable("players", 5, flags, new Vector2(0, 330));
+                                      ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new Vector2(8, 7));
+        var open = ImGui.BeginTable("players", 3, flags, new Vector2(0, 360));
         ImGui.PopStyleVar();
         if (!open) return;
         ImGui.TableSetupScrollFreeze(0, 1);
-        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.DefaultSort, 1.4f);
-        ImGui.TableSetupColumn("Class", ImGuiTableColumnFlags.None, 1.1f);
-        ImGui.TableSetupColumn("Level", ImGuiTableColumnFlags.None, .7f);
+        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.DefaultSort, 1.2f);
         ImGui.TableSetupColumn("Distance", ImGuiTableColumnFlags.None, 1f);
         ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.NoSort, 1f);
         ImGui.PushFont(Fonts.SmallSemiBold);
@@ -311,15 +271,10 @@ internal sealed class DemoOverlay : BlazeOverlay
         var specs = ImGui.TableGetSortSpecs();
         if (specs.SpecsDirty)
         {
-            var column = specs.Specs.ColumnIndex;
             var ascending = specs.Specs.SortDirection == ImGuiSortDirection.Ascending;
-            Comparison<Player> compare = column switch
-            {
-                1 => (a, b) => string.Compare(a.Class, b.Class, StringComparison.Ordinal),
-                2 => (a, b) => a.Level.CompareTo(b.Level),
-                3 => (a, b) => a.Distance.CompareTo(b.Distance),
-                _ => (a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal),
-            };
+            Comparison<Player> compare = specs.Specs.ColumnIndex == 1
+                ? (a, b) => a.Distance.CompareTo(b.Distance)
+                : (a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal);
             _players.Sort((a, b) => ascending ? compare(a, b) : compare(b, a));
             specs.SpecsDirty = false;
         }
@@ -331,69 +286,75 @@ internal sealed class DemoOverlay : BlazeOverlay
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
             if (ImGui.Selectable($"{p.Name}##row{i}", _selectedRow == i, ImGuiSelectableFlags.SpanAllColumns)) _selectedRow = i;
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); Ui.Text(p.Class, Theme.Colors.TextMuted);
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.TextUnformatted(p.Level.ToString());
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.TextUnformatted($"{p.Distance:0.0} yd");
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); Ui.Text($"{p.Distance:0.0} yd", Theme.Colors.TextMuted);
             ImGui.TableNextColumn(); Ui.Badge(p.InCombat ? "Combat" : "Idle", p.InCombat ? Tone.Danger : Tone.Neutral);
         }
         ImGui.EndTable();
     }
 
-    private void DrawCharts()
+    private void DrawTree()
     {
-        Ui.BeginCard("live", "Live series", Icons.ChartSpline);
-        Ui.LineChart("##live", _series, 150, 0, 100);
-        Ui.EndCard();
-        ImGui.Spacing();
-        if (Ui.BeginGrid("native", 2))
+        if (ImGui.TreeNodeEx("World", ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
         {
-            Ui.NextCell();
-            Ui.BeginCard("plotlines", "ImGui.PlotLines");
-            ImGui.PlotLines("##lines", ref _series[0], _series.Length, 0, null, 0, 100, new Vector2(-1, 90));
-            Ui.EndCard();
-            Ui.NextCell();
-            Ui.BeginCard("histogram", "ImGui.PlotHistogram");
-            ImGui.PlotHistogram("##hist", ref _bars[0], _bars.Length, 0, null, 0, 14, new Vector2(-1, 90));
-            Ui.EndCard();
+            if (ImGui.TreeNodeEx("Players", ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
+            {
+                foreach (var p in _players.Take(3))
+                    ImGui.TreeNodeEx($"{Icons.User}  {p.Name}", ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen | ImGuiTreeNodeFlags.SpanAvailWidth);
+                ImGui.TreePop();
+            }
+            if (ImGui.TreeNodeEx("Objects", ImGuiTreeNodeFlags.SpanAvailWidth))
+            {
+                ImGui.TreeNodeEx($"{Icons.Box}  Chest", ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen);
+                ImGui.TreePop();
+            }
+            ImGui.TreePop();
+        }
+        ImGui.Spacing();
+        if (ImGui.CollapsingHeader("Collapsing header", ImGuiTreeNodeFlags.DefaultOpen))
+            Ui.Hint("Collapsing headers, tree nodes and selectables all use the theme's colors.");
+    }
+
+    private void DrawLive()
+    {
+        if (Ui.BeginGrid("stats", 2))
+        {
+            Ui.NextCell(); Ui.Stat("Players", "128", "+12%", Tone.Success);
+            Ui.NextCell(); Ui.Stat("Frame time", "2.4 ms", "-0.3", Tone.Success);
             Ui.EndGrid();
         }
         ImGui.Spacing();
-        Ui.BeginCard("tones", "Tones");
+        Ui.Section("Activity");
+        Ui.LineChart("##live", _series, 150, 0, 100);
+        Ui.Section("Success tone");
         Ui.LineChart("##success", _series.AsSpan(30), 60, 0, 100, tone: Tone.Success);
-        Ui.EndCard();
     }
 
-    private void DrawFeedback()
+    private void DrawNative()
     {
-        Ui.Section("Notifications");
-        Ui.BeginCard("toasts");
-        if (Ui.Button($"{Icons.Info}  Info")) Notify.Show("Heads up", "Toasts stack in the corner and fade out on their own.");
-        ImGui.SameLine();
-        if (Ui.Button($"{Icons.CircleCheck}  Success")) Notify.Show("Connected", "Attached to the game process.", Tone.Success);
-        ImGui.SameLine();
-        if (Ui.Button($"{Icons.TriangleAlert}  Warning")) Notify.Show("Offsets outdated", "Some features are disabled.", Tone.Warning);
-        ImGui.SameLine();
-        if (Ui.Button($"{Icons.CircleX}  Error")) Notify.Show("Read failed", "Retrying in 2 seconds.", Tone.Danger);
-        Ui.EndCard();
+        Ui.Section("ImGui.PlotLines");
+        ImGui.PlotLines("##lines", ref _series[0], _series.Length, 0, null, 0, 100, new Vector2(-1, 90));
+        Ui.Section("ImGui.PlotHistogram");
+        ImGui.PlotHistogram("##hist", ref _bars[0], _bars.Length, 0, null, 0, 14, new Vector2(-1, 90));
+    }
 
-        Ui.Section("Dialogs & tooltips");
-        Ui.BeginCard("dialogs");
-        if (Ui.Button("Open modal", ButtonKind.Primary)) ImGui.OpenPopup("Reset settings?");
-        ImGui.SameLine();
-        Ui.Button("Hover me");
-        Ui.Tooltip("Tooltips fade in after a short delay and wrap long text automatically.");
-        ImGui.SameLine();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("Help marker");
-        ImGui.SameLine();
-        Ui.HelpMarker("Small inline hints for settings that need explaining.");
-        DrawModal();
-        Ui.EndCard();
+    private void DrawToasts()
+    {
+        var width = new Vector2(Ui.ControlWidth, 0);
+        if (Ui.Button("Info", ButtonKind.Secondary, width)) Notify.Show("Heads up", "Toasts stack in the corner and fade out on their own.");
+        ImGui.Spacing();
+        if (Ui.Button("Success", ButtonKind.Secondary, width)) Notify.Show("Connected", "Attached to the game process.", Tone.Success);
+        ImGui.Spacing();
+        if (Ui.Button("Warning", ButtonKind.Secondary, width)) Notify.Show("Offsets outdated", "Some features are disabled.", Tone.Warning);
+        ImGui.Spacing();
+        if (Ui.Button("Error", ButtonKind.Secondary, width)) Notify.Show("Read failed", "Retrying in 2 seconds.", Tone.Danger);
+    }
 
-        Ui.Section("Progress & status");
-        Ui.BeginCard("progress");
+    private void DrawProgress()
+    {
         var t = (float)(ImGui.GetTime() * .15 % 1.0);
         Ui.Progress(t, "Downloading update");
+        ImGui.Spacing();
+        Ui.Progress(.72f, "Memory scan", Tone.Success);
         ImGui.Spacing();
         Ui.Spinner();
         ImGui.SameLine();
@@ -401,11 +362,23 @@ internal sealed class DemoOverlay : BlazeOverlay
         Ui.Hint("Waiting for the game window…");
         ImGui.Spacing();
         Ui.Badge("Neutral"); ImGui.SameLine();
-        Ui.Badge("Accent", Tone.Accent); ImGui.SameLine();
         Ui.Badge("Success", Tone.Success); ImGui.SameLine();
         Ui.Badge("Warning", Tone.Warning); ImGui.SameLine();
         Ui.Badge("Danger", Tone.Danger);
-        Ui.EndCard();
+    }
+
+    private void DrawDialogs()
+    {
+        if (Ui.Button("Open modal", ButtonKind.Primary, new Vector2(Ui.ControlWidth, 0))) ImGui.OpenPopup("Reset settings?");
+        ImGui.Spacing();
+        Ui.Button("Hover me", ButtonKind.Secondary, new Vector2(Ui.ControlWidth, 0));
+        Ui.Tooltip("Tooltips fade in after a short delay and wrap long text automatically.");
+        ImGui.Spacing();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted("Help marker");
+        ImGui.SameLine();
+        Ui.HelpMarker("Small inline hints for settings that need explaining.");
+        DrawModal();
     }
 
     private static void DrawModal()
@@ -414,7 +387,7 @@ internal sealed class DemoOverlay : BlazeOverlay
         var open = true;
         if (!ImGui.BeginPopupModal("Reset settings?", ref open, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoTitleBar))
             return;
-        ImGui.PushFont(Fonts.SemiBold);
+        ImGui.PushFont(Fonts.Title);
         ImGui.TextUnformatted("Reset settings?");
         ImGui.PopFont();
         Ui.Hint("Every option goes back to its default. This cannot be undone.");
@@ -432,57 +405,23 @@ internal sealed class DemoOverlay : BlazeOverlay
 
     private void DrawSettings()
     {
-        Ui.Section("Appearance");
-        Ui.BeginCard("appearance");
+        Ui.Keybind("Menu key", ref _menuKey, "The key that shows and hides this menu.");
         Ui.Row("Theme");
         var mode = Theme.IsDark ? 1 : 0;
-        if (Ui.Segmented("##theme-setting", ref mode, [$"{Icons.Sun}  Light", $"{Icons.Moon}  Dark"]))
+        if (Ui.Segmented("##theme", ref mode, ["Light", "Dark"]))
             Theme.Set(mode == 1 ? ThemeMode.Dark : ThemeMode.Light);
-        Ui.Row("Accent", Accents.Length * 26f);
-        DrawAccentSwatches();
-        Ui.Toggle("Watermark", ref _watermark, "Small HUD in the top-left corner (drawn in DrawOverlay)");
-        Ui.Toggle("Crosshair", ref _crosshair);
-        Ui.EndCard();
-
-        Ui.Section("Hotkeys");
-        Ui.BeginCard("hotkeys");
-        ImGui.AlignTextToFramePadding(); ImGui.TextUnformatted("Show / hide menu");
-        Ui.SameLineRight(Ui.BadgeSize(Input.KeyName(Options.MenuKey)).X); Ui.Badge(Input.KeyName(Options.MenuKey));
-        ImGui.AlignTextToFramePadding(); ImGui.TextUnformatted("Exit overlay");
-        Ui.SameLineRight(Ui.BadgeSize(Input.KeyName(Options.ExitKey)).X); Ui.Badge(Input.KeyName(Options.ExitKey));
-        Ui.EndCard();
-
-        Ui.Section("About");
-        Ui.BeginCard("about");
-        Ui.Hint("BlazeImGui · Inter + Lucide icons · ImGui.NET 1.91.6 on ClickableTransparentOverlay.");
-        Ui.EndCard();
-    }
-
-    private void DrawAccentSwatches()
-    {
-        var draw = ImGui.GetWindowDrawList();
-        var start = ImGui.GetCursorScreenPos();
-        var size = ImGui.GetFrameHeight();
-        for (var i = 0; i < Accents.Length; i++)
+        ImGui.Dummy(new Vector2(0, 8));
+        Ui.Toggle("Watermark", ref _watermark, "Small HUD in the top-left corner (drawn in DrawOverlay).");
+        var width = new Vector2(Ui.ControlWidth, 0);
+        if (Ui.Button("Save config", ButtonKind.Secondary, width))
         {
-            var min = start + new Vector2(i * 26f, 0);
-            ImGui.SetCursorScreenPos(min);
-            ImGui.PushID(i);
-            if (ImGui.InvisibleButton("##accent", new Vector2(22, size)))
-            {
-                _accent = i;
-                Theme.SetAccent(Accents[i].Color);
-            }
-            var hovered = ImGui.IsItemHovered();
-            ImGui.PopID();
-            if (hovered) Ui.Tooltip(Accents[i].Name);
-            var center = min + new Vector2(11, size * .5f);
-            var selected = Anim.Toggle(ImGui.GetID($"##accent-sel{i}"), _accent == i, 16f);
-            if (selected > .01f) draw.AddCircle(center, 10.5f, Theme.U32(Accents[i].Color, selected), 32, 1.5f);
-            draw.AddCircleFilled(center, Anim.Lerp(8f, 6.5f, selected) + (hovered ? .5f : 0), Theme.U32(Accents[i].Color));
+            _dirty = false;
+            Notify.Show("Saved", "Settings written to blaze.ini.", Tone.Success);
         }
-        ImGui.SetCursorScreenPos(start);
-        ImGui.Dummy(new Vector2(Accents.Length * 26f, size));
+        ImGui.Spacing();
+        if (Ui.Button("Load config", ButtonKind.Secondary, width)) Notify.Show("Loaded", "Settings read from blaze.ini.");
+        ImGui.Dummy(new Vector2(0, 8));
+        if (Ui.Button("Close menu", ButtonKind.Secondary, width)) Menu.RequestClose();
     }
 
     private sealed record Player(string Name, string Class, int Level, int Health, float Distance, bool InCombat);

@@ -5,7 +5,8 @@
 // (DirectX / OpenGL / Vulkan hooks, internal overlays, plain apps). Requires Dear ImGui 1.92+ (dynamic fonts), C++17.
 //
 //   Blaze::Overlay overlay({ .Title = "My Tool", .Subtitle = "v1.0" });
-//   overlay.menu.AddPage("General", ICON_LC_HOUSE, [] { Blaze::Ui::BeginCard("main"); ...; Blaze::Ui::EndCard(); });
+//   auto& page = overlay.menu.AddPage("Aim", ICON_LC_CROSSHAIR, "Assist");
+//   page.AddTab("General", [] { Blaze::Ui::Toggle("Enabled", &enabled, "Shown under ABOUT while hovered"); ... });
 //   overlay.Setup();                  // once, after ImGui::CreateContext() and the backends' Init
 //   ...every frame, between ImGui::NewFrame() and ImGui::Render():
 //   overlay.Render();                 // theme, menu (with its fade) and toasts
@@ -46,7 +47,8 @@ namespace Blaze
         ImVec4 Border;                           // hairlines
         ImVec4 Text, TextMuted, TextFaint;
         ImVec4 Accent, AccentHover, OnAccent;
-        ImVec4 Knob;                             // toggle / slider knobs
+        ImVec4 Knob;                             // slider grips
+        ImVec4 Brand;                            // the brand mark's dot; the rest of the menu stays neutral
         ImVec4 Success, Warning, Danger;
 
         static Palette DefaultDark();
@@ -139,7 +141,9 @@ namespace Blaze
         inline Font SemiBold;        // card / section titles
         inline Font Small;           // body - 2 px: captions, hints, badges
         inline Font SmallSemiBold;   // section labels
-        inline Font Heading;         // page titles
+        inline Font Heading;         // stat values, big numbers
+        inline Font Title;           // menu column titles (page, tab, status)
+        inline Font Brand;           // the rail's brand mark
         inline Font IconLarge;       // brand marks, empty states
 
         float BodySize();
@@ -172,22 +176,35 @@ namespace Blaze
 
     // ── widgets ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// Themed, animated widgets. Labeled controls use one "settings row" layout: label left, control right, optional
-    /// description in small muted text below. Text after "##" is hidden but keeps the ID unique. Controls return true
-    /// on the frame the value changes. Plain ImGui widgets are themed too and mix freely.
+    /// Themed, animated widgets. Labeled controls stack: the label on its own line, the control under it at ControlWidth.
+    /// A description shows under ABOUT in the menu's status column while the control is hovered (under the control when
+    /// the menu has no status column). Text after "##" is hidden but keeps the ID unique. Controls return true on the
+    /// frame the value changes. Plain ImGui widgets are themed too and mix freely.
     namespace Ui
     {
         /// UI scale (sizes; fonts follow through style.FontScaleMain). Set it with Overlay::SetScale.
         inline float Scale = 1.0f;
         inline float S(float value) { return value * Scale; }
         inline ImVec2 S(float x, float y) { return ImVec2(x * Scale, y * Scale); }
+        /// The text under ABOUT: the last hovered control's description, or the tab's.
+        inline std::string CurrentAbout;
+        /// Descriptions under their controls instead of under ABOUT (the menu sets it each frame).
+        inline bool InlineDescriptions = false;
+        /// Label column of Readout, as a fraction of the row (at least 110 px).
+        inline float ReadoutSplit = 0.42f;
 
         // layout
         void Text(const char* text, const ImVec4& color);
         void Text(const char* text, Tone tone);
         void TextWrapped(const char* text);
-        /// A quiet label that groups the rows below it.
+        /// A quiet uppercase label ("AIM ASSIST", "ABOUT") heading the rows below it.
+        void Caption(const char* text);
+        /// A caption that groups the rows below it, with room above when it follows other content.
         void Section(const char* title);
+        /// A status line: a muted label and its value in a column to the right; tone colors the value (Neutral: text).
+        void Readout(const char* label, const char* value, Tone tone = Tone::Neutral);
+        /// Attaches a description to the previous item or group: shown under ABOUT while hovered.
+        void About(const char* description);
         /// A rounded card that grows to fit its content. Always pair with EndCard.
         void BeginCard(const char* id, const char* title = nullptr, const char* icon = nullptr, float width = 0.0f);
         void EndCard();
@@ -209,25 +226,25 @@ namespace Blaze
             std::optional<float> max = std::nullopt, const char* valueFormat = "%.1f", Tone tone = Tone::Accent);
 
         // controls
-        /// A full-width row with a label and an animated switch; the whole row is clickable.
+        /// A checkbox row: the box and its label, the whole row clickable. The settings-style boolean.
         bool Toggle(const char* label, bool* value, const char* description = nullptr);
-        /// Compact animated checkbox for dense lists.
+        /// A compact checkbox sized to its label, for several on one line.
         bool Checkbox(const char* label, bool* value);
-        /// Label + value on one line, the track below. format is printf-style ("%.1f", "%.0f%%").
+        /// The label above, the value in a box and the track beside it. format is printf-style ("%.1f", "%.0f%%").
         bool Slider(const char* label, float* value, float min, float max, const char* format = "%.1f", const char* description = nullptr);
         bool Slider(const char* label, int* value, int min, int max, const char* format = "%d", const char* description = nullptr);
-        /// size.x: 0 fits the text, < 0 fills the row. Icons concatenate: ICON_LC_SAVE "  Save".
+        /// Outlined (Secondary) or ink-filled (Primary). size.x: 0 fits the text, < 0 fills the row. ICON_LC_SAVE "  Save".
         bool Button(const char* label, ButtonKind kind = ButtonKind::Secondary, ImVec2 size = ImVec2(0.0f, 0.0f));
         bool IconButton(const char* icon, const char* id, const char* tooltip = nullptr, float size = 0.0f);
-        /// Pill tabs with a sliding thumb. width 0 fills (after Row: the control column).
+        /// A segmented control with a sliding ink thumb. width 0: ControlWidth.
         bool Segmented(const char* id, int* index, const char* const* items, int count, float width = 0.0f);
         template <int N> bool Segmented(const char* id, int* index, const char* const (&items)[N], float width = 0.0f)
         {
             return Segmented(id, index, items, N, width);
         }
-        /// Width of the right-aligned control in a settings row.
+        /// Width of a control under its label (the column width, up to 280 px).
         float ControlWidth();
-        /// A row label; leaves the cursor and item width where a control `controlWidth` wide goes: Row("Mode"); ImGui::Combo(...).
+        /// A label on its own line; leaves the cursor and item width where the control goes: Row("Mode"); ImGui::Combo(...).
         void Row(const char* label, float controlWidth = 0.0f);
         bool Combo(const char* label, int* index, const char* const* items, int count, const char* description = nullptr);
         template <int N> bool Combo(const char* label, int* index, const char* const (&items)[N], const char* description = nullptr)
@@ -239,9 +256,9 @@ namespace Blaze
         bool Number(const char* label, float* value, float speed = 0.1f, float min = 0.0f, float max = 0.0f, const char* format = "%.2f",
             const char* description = nullptr);
         bool Number(const char* label, int* value, float speed = 0.2f, int min = 0, int max = 0, const char* description = nullptr);
-        /// A swatch that opens a picker.
+        /// A swatch with its label beside it; the swatch opens a picker.
         bool Color(const char* label, ImVec4* color, bool alpha = true, const char* description = nullptr);
-        /// Click, then press a key or mouse button. Esc cancels, Backspace clears (0).
+        /// An outlined button reading "Label: Key". Click, then press a key or mouse button. Esc cancels, Backspace clears (0).
         bool Keybind(const char* label, int* key, const char* description = nullptr);
         /// True while a Keybind waits for a key (hosts should ignore their hotkeys meanwhile).
         bool IsCapturingKey();
@@ -272,46 +289,79 @@ namespace Blaze
 
     // ── menu ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-    struct MenuPage
+    /// One entry of a page's tab list and the content drawn when it is selected.
+    struct MenuTab
     {
         std::string Title;
-        std::string Icon;
         std::function<void()> Draw;
-        std::string Description;   // muted line under the page title
-        std::string Group;         // sidebar group label; consecutive pages with the same group are listed under it
-        std::string Badge;         // pill at the end of the sidebar entry ("New", "3")
-        /// false: the page gets the whole body without scrolling and lays itself out (its own child windows).
-        bool Scroll = true;
+        std::string About;   // under ABOUT in the status column until a control with a description is hovered
     };
 
-    /// The menu window: a sidebar with the brand, page navigation and the theme switch, and a content area with the
-    /// page header and the selected page. Pages fade/slide in when switched; the selection pill glides.
+    /// One icon on the rail: a titled page with its own tabs and, optionally, its own status readout.
+    class MenuPage
+    {
+    public:
+        std::string Title;
+        std::string Icon;
+        std::string Caption;            // quiet uppercase line under the page title ("ASSIST")
+        std::function<void()> Status;   // the status column for this page; empty falls back to Menu::Status
+        bool PinBottom = false;         // icon at the bottom of the rail (settings)
+        bool Badge = false;             // a small brand dot on the rail icon
+        /// false: the tabs get the whole body without scrolling and lay themselves out (their own child windows).
+        bool Scroll = true;
+
+        /// The returned tab stays valid (tabs are never moved).
+        MenuTab& AddTab(const char* title, std::function<void()> draw, const char* about = nullptr);
+        const std::deque<MenuTab>& Tabs() const { return tabs; }
+        int SelectedTab() const { return selectedTab; }
+        /// Selects a tab and plays the content transition.
+        void SetSelectedTab(int index);
+        void SelectTab(const char* title);
+
+    private:
+        friend class Menu;
+        std::deque<MenuTab> tabs;
+        int selectedTab = 0;
+        bool tabChanged = false;
+    };
+
+    /// The menu window, in four columns: an icon rail with the brand mark, the page's title and tabs with the brand
+    /// footer, the selected tab's controls, and a status column with live readouts and an ABOUT hint for the hovered
+    /// control. The rail tile and tab marker glide; content fades in when the page or tab changes.
     class Menu
     {
     public:
-        std::string Title = "Blaze";
-        std::string Subtitle;
-        std::string Logo = ICON_LC_FLAME;
-        ImVec2 Size = ImVec2(820.0f, 540.0f);   // initial size before scale
-        ImVec2 MinSize = ImVec2(620.0f, 400.0f);
+        std::string Title = "Blaze";      // brand name at the bottom of the tab column
+        std::string Subtitle;             // small muted word after it
+        std::string Version;              // after the subtitle ("v1.0.0")
+        std::string Logo;                 // the rail's brand mark; empty: the first letter of Title
+        ImVec2 Size = ImVec2(1000.0f, 600.0f);   // initial size before scale
+        ImVec2 MinSize = ImVec2(860.0f, 500.0f);
         bool Resizable = true;
-        float SidebarWidth = 210.0f;
-        bool ShowThemeSwitch = true;
-        bool ShowCloseButton = true;
-        std::function<void()> HeaderActions;   // right of the page header, before the close button
-        std::function<void()> SidebarFooter;   // bottom of the sidebar, above the theme switch
-        std::function<void()> OnClose;         // the header close button
+        float RailWidth = 62.0f;
+        float NavWidth = 200.0f;
+        float ContentWidth = 340.0f;      // the controls column; the status column takes the rest
+        /// Without the status column the controls take the rest and descriptions show under their controls.
+        bool ShowStatus = true;
+        std::string StatusTitle = "Status";
+        std::function<void()> Status;     // the status column for pages without their own
+        std::string AboutTitle = "About";
+        std::function<void()> OnClose;    // RequestClose (e.g. a "Close menu" button)
 
-        /// The returned page stays valid (pages are never moved).
-        MenuPage& AddPage(const char* title, const char* icon, std::function<void()> draw, const char* description = nullptr,
-            const char* group = nullptr);
+        /// A rail page; give it tabs with MenuPage::AddTab. The returned page stays valid (pages are never moved).
+        MenuPage& AddPage(const char* title, const char* icon, const char* caption = nullptr);
+        /// A page with a single tab of the same title.
+        MenuPage& AddPage(const char* title, const char* icon, std::function<void()> draw, const char* caption = nullptr);
         const std::deque<MenuPage>& Pages() const { return pages; }
         MenuPage* Page(int index) { return index >= 0 && index < static_cast<int>(pages.size()) ? &pages[index] : nullptr; }
 
         int Selected() const { return selected; }
         /// Selects a page and plays the page transition.
         void SetSelected(int index);
+        /// The first page with this title; "Page/Tab" also selects the tab.
         void Select(const char* title);
+        /// Asks the host to hide the menu (calls OnClose).
+        void RequestClose() { if (OnClose) OnClose(); }
 
         /// Puts the window back in the middle of the screen (next Draw).
         void Center() { centerPending = true; }
@@ -322,32 +372,36 @@ namespace Blaze
         void Draw(float visibility, bool interactive);
 
     private:
-        void DrawSidebar(float width, float height);
-        void DrawContent(const ImVec2& size);
+        void DrawRail(float width, float height);
+        void DrawNav(float x, float width, float height);
+        void DrawContent(const ImVec2& position, const ImVec2& size);
+        void DrawStatus(const ImVec2& position, const ImVec2& size);
+        MenuTab* CurrentTab();
+        void ResetAbout();
 
         std::deque<MenuPage> pages;
         int selected = 0;
         float pageProgress = 1.0f;
+        float navProgress = 1.0f;
         std::optional<ImVec2> restPosition;
         bool centerPending = false;
         ImVec2 windowCenter = ImVec2(0.0f, 0.0f);
-        float lastActionsWidth = 0.0f;
-        float footerHeight = 0.0f;
     };
 
     // ── overlay ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
     struct OverlayOptions
     {
-        std::string Title = "Blaze Overlay";   // brand name in the sidebar
-        std::string Subtitle;                  // small line under it
-        std::string Logo = ICON_LC_FLAME;
+        std::string Title = "Blaze Overlay";   // brand name under the tabs
+        std::string Subtitle;                  // small muted word after it ("osu!")
+        std::string Version;                   // after the subtitle ("v1.0.0")
+        std::string Logo;                      // rail brand mark; empty: the first letter of Title
         bool StartVisible = true;
-        ThemeMode Theme = ThemeMode::Dark;
-        std::optional<ImVec4> Accent;          // default: indigo #6D8CFF
+        ThemeMode Theme = ThemeMode::Light;
+        std::optional<ImVec4> Accent;          // default: ink (near-black, near-white in dark)
         float FontSize = 15.0f;                // body px before scale
         float UiScale = 1.0f;
-        ImVec2 MenuSize = ImVec2(820.0f, 540.0f);
+        ImVec2 MenuSize = ImVec2(1000.0f, 600.0f);
         /// Runs after each Inter weight is added (see Fonts::Load).
         std::function<void(ImFont*)> MergeFonts;
     };

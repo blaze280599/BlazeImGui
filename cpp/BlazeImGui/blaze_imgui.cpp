@@ -4,6 +4,7 @@
 #include "blaze_imgui.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
@@ -84,7 +85,7 @@ namespace Blaze
         p.Border = L(a.Border, b.Border); p.Raised = L(a.Raised, b.Raised);
         p.Text = L(a.Text, b.Text); p.TextMuted = L(a.TextMuted, b.TextMuted); p.TextFaint = L(a.TextFaint, b.TextFaint);
         p.Accent = L(a.Accent, b.Accent); p.AccentHover = L(a.AccentHover, b.AccentHover); p.OnAccent = L(a.OnAccent, b.OnAccent);
-        p.Knob = L(a.Knob, b.Knob);
+        p.Knob = L(a.Knob, b.Knob); p.Brand = L(a.Brand, b.Brand);
         p.Success = L(a.Success, b.Success); p.Warning = L(a.Warning, b.Warning); p.Danger = L(a.Danger, b.Danger);
         return p;
     }
@@ -92,24 +93,25 @@ namespace Blaze
     Palette Palette::DefaultDark()
     {
         Palette p;
-        p.Background = Hex("#111216");
-        p.Sidebar = Hex("#0C0D10");
-        p.Surface = Hex("#17181D");
-        p.Elevated = Hex("#1B1C22");
-        p.Field = Hex("#22242B");
-        p.FieldHover = Hex("#2A2C34");
-        p.FieldActive = Hex("#31343D");
-        p.Raised = Hex("#383B45");
-        p.Border = Hex("#FFFFFF", 0.07f);
-        p.Text = Hex("#ECEDF0");
-        p.TextMuted = Hex("#959AA4");
-        p.TextFaint = Hex("#62666F");
-        p.Accent = Hex("#6D8CFF");
-        p.AccentHover = Hex("#8199FF");
-        p.OnAccent = Hex("#FFFFFF");
-        p.Knob = Hex("#FFFFFF");
+        p.Background = Hex("#17171B");
+        p.Sidebar = Hex("#17171B");
+        p.Surface = Hex("#1D1D22");
+        p.Elevated = Hex("#202026");
+        p.Field = Hex("#2A2A31");
+        p.FieldHover = Hex("#313139");
+        p.FieldActive = Hex("#393941");
+        p.Raised = Hex("#33333B");
+        p.Border = Hex("#FFFFFF", 0.08f);
+        p.Text = Hex("#E7E7EB");
+        p.TextMuted = Hex("#8C8C96");
+        p.TextFaint = Hex("#56565F");
+        p.Accent = Hex("#E7E7EB");
+        p.AccentHover = Hex("#FFFFFF");
+        p.OnAccent = Hex("#17171B");
+        p.Knob = Hex("#F2F2F5");
+        p.Brand = Hex("#FF5C9D");
         p.Success = Hex("#3DD68C");
-        p.Warning = Hex("#F5B74F");
+        p.Warning = Hex("#F5A524");
         p.Danger = Hex("#FF6B6B");
         return p;
     }
@@ -117,24 +119,25 @@ namespace Blaze
     Palette Palette::DefaultLight()
     {
         Palette p;
-        p.Background = Hex("#FFFFFF");
-        p.Sidebar = Hex("#F6F7F9");
-        p.Surface = Hex("#F7F8FA");
-        p.Elevated = Hex("#FFFFFF");
-        p.Field = Hex("#EDEFF3");
-        p.FieldHover = Hex("#E4E7EC");
-        p.FieldActive = Hex("#DADEE5");
-        p.Raised = Hex("#FFFFFF");
-        p.Border = Hex("#0B0D12", 0.09f);
-        p.Text = Hex("#15171C");
-        p.TextMuted = Hex("#646A75");
-        p.TextFaint = Hex("#9AA0AA");
-        p.Accent = Hex("#4F6EF7");
-        p.AccentHover = Hex("#4262EE");
-        p.OnAccent = Hex("#FFFFFF");
-        p.Knob = Hex("#FFFFFF");
-        p.Success = Hex("#16A36A");
-        p.Warning = Hex("#D9891A");
+        p.Background = Hex("#ECECF0");
+        p.Sidebar = Hex("#ECECF0");
+        p.Surface = Hex("#F3F3F6");
+        p.Elevated = Hex("#F7F7F9");
+        p.Field = Hex("#E1E1E6");
+        p.FieldHover = Hex("#D9D9DF");
+        p.FieldActive = Hex("#CFCFD6");
+        p.Raised = Hex("#F9F9FB");
+        p.Border = Hex("#0B0B12", 0.10f);
+        p.Text = Hex("#2B2B30");
+        p.TextMuted = Hex("#8E8E98");
+        p.TextFaint = Hex("#B6B6BF");
+        p.Accent = Hex("#2B2B30");
+        p.AccentHover = Hex("#3B3B41");
+        p.OnAccent = Hex("#F3F3F6");
+        p.Knob = Hex("#F9F9FB");
+        p.Brand = Hex("#FF5C9D");
+        p.Success = Hex("#2EA44F");
+        p.Warning = Hex("#E8820C");
         p.Danger = Hex("#E5484D");
         return p;
     }
@@ -208,11 +211,11 @@ namespace
     {
         Blaze::Palette dark = Blaze::Palette::DefaultDark();
         Blaze::Palette light = Blaze::Palette::DefaultLight();
-        Blaze::Palette from = dark;
-        Blaze::Palette colors = dark;
+        Blaze::Palette from = light;
+        Blaze::Palette colors = light;
         float progress = 1.0f;
-        Blaze::ThemeMode mode = Blaze::ThemeMode::Dark;
-        float rounding = 8.0f;
+        Blaze::ThemeMode mode = Blaze::ThemeMode::Light;
+        float rounding = 4.0f;
         std::function<void(Blaze::ThemeMode)> changed;
 
         const Blaze::Palette& Target() const { return mode == Blaze::ThemeMode::Dark ? dark : light; }
@@ -239,9 +242,9 @@ namespace
         c[ImGuiCol_PopupBg] = p.Elevated;
         c[ImGuiCol_Border] = p.Border;
         c[ImGuiCol_BorderShadow] = none;
-        c[ImGuiCol_FrameBg] = p.Field;
-        c[ImGuiCol_FrameBgHovered] = p.FieldHover;
-        c[ImGuiCol_FrameBgActive] = p.FieldActive;
+        c[ImGuiCol_FrameBg] = p.Surface;
+        c[ImGuiCol_FrameBgHovered] = p.Elevated;
+        c[ImGuiCol_FrameBgActive] = p.Elevated;
         c[ImGuiCol_TitleBg] = p.Background;
         c[ImGuiCol_TitleBgActive] = p.Background;
         c[ImGuiCol_TitleBgCollapsed] = p.Background;
@@ -256,9 +259,9 @@ namespace
         c[ImGuiCol_Button] = p.Field;
         c[ImGuiCol_ButtonHovered] = p.FieldHover;
         c[ImGuiCol_ButtonActive] = p.FieldActive;
-        c[ImGuiCol_Header] = A(p.Accent, 0.14f);
-        c[ImGuiCol_HeaderHovered] = p.FieldHover;
-        c[ImGuiCol_HeaderActive] = A(p.Accent, 0.22f);
+        c[ImGuiCol_Header] = p.Field;
+        c[ImGuiCol_HeaderHovered] = A(p.Field, 0.7f);
+        c[ImGuiCol_HeaderActive] = p.FieldHover;
         c[ImGuiCol_Separator] = p.Border;
         c[ImGuiCol_SeparatorHovered] = A(p.Accent, 0.6f);
         c[ImGuiCol_SeparatorActive] = p.Accent;
@@ -367,27 +370,27 @@ void Blaze::Theme::ApplyStyle(float scale)
     style.FontScaleMain = previous.FontScaleMain;
     style.FontScaleDpi = previous.FontScaleDpi;
 
-    style.WindowRounding = 12;
-    style.ChildRounding = 10;
-    style.FrameRounding = 7;
-    style.PopupRounding = 9;
-    style.GrabRounding = 7;
-    style.TabRounding = 7;
+    style.WindowRounding = 8;
+    style.ChildRounding = 6;
+    style.FrameRounding = 4;
+    style.PopupRounding = 5;
+    style.GrabRounding = 3;
+    style.TabRounding = 4;
     style.ScrollbarRounding = 9;
     style.WindowBorderSize = 1;
     style.ChildBorderSize = 1;
     style.PopupBorderSize = 1;
-    style.FrameBorderSize = 0;
+    style.FrameBorderSize = 1;
     style.TabBorderSize = 0;
     style.TabBarBorderSize = 1;
     style.TabBarOverlineSize = 2;
     style.WindowPadding = ImVec2(16, 14);
-    style.FramePadding = ImVec2(10, 6);
+    style.FramePadding = ImVec2(10, 8);
     style.ItemSpacing = ImVec2(10, 8);
     style.ItemInnerSpacing = ImVec2(8, 6);
     style.CellPadding = ImVec2(10, 6);
     style.IndentSpacing = 18;
-    style.ScrollbarSize = 10;
+    style.ScrollbarSize = 6;
     style.GrabMinSize = 10;
     style.WindowMinSize = ImVec2(160, 80);
     style.SeparatorTextBorderSize = 1;
@@ -499,6 +502,8 @@ void Blaze::Fonts::Load(float bodySize, const std::function<void(ImFont*)>& merg
     Small = { g_weights[0], body - 2.0f };
     SmallSemiBold = { g_weights[2], body - 2.0f };
     Heading = { g_weights[2], std::round(body * 1.34f) };
+    Title = { g_weights[1], std::round(body * 1.27f) };
+    Brand = { g_weights[2], std::round(body * 1.87f) };
     IconLarge = { g_weights[0], std::round(body * 1.4f) };
 
     ImGui::GetIO().FontDefault = g_weights[0];
@@ -596,26 +601,18 @@ namespace
 {
     ImGuiID g_capturingKey = 0;
 
-    float SmallLineHeight()
+    // A control's label on its own line, a little closer to the control than to the row above.
+    void Label(const char* label)
     {
-        Blaze::Fonts::Push(Blaze::Fonts::Small);
-        const float height = ImGui::GetTextLineHeight();
-        Blaze::Fonts::Pop();
-        return height;
-    }
-
-    void Description(const char* description)
-    {
-        if (!description)
+        const std::string text = Blaze::Ui::Visible(label);
+        if (text.empty())
             return;
-
-        Blaze::Fonts::Push(Blaze::Fonts::Small);
-        ImGui::PushStyleColor(ImGuiCol_Text, P().TextMuted);
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - S(4));
-        Blaze::Ui::TextWrapped(description);
-        ImGui::PopStyleColor();
-        Blaze::Fonts::Pop();
+        ImGui::TextUnformatted(text.c_str());
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - S(1));
     }
+
+    // Extra room after a labeled control, so rows read as separate groups.
+    void Gap() { ImGui::Dummy(ImVec2(0.0f, S(8))); }
 }
 
 std::string Blaze::Ui::Visible(const char* label)
@@ -658,23 +655,56 @@ void Blaze::Ui::TextWrapped(const char* text)
     ImGui::PopTextWrapPos();
 }
 
+void Blaze::Ui::Caption(const char* text)
+{
+    std::string upper = Visible(text);
+    std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char ch) { return static_cast<char>(std::toupper(ch)); });
+    Fonts::Push(Fonts::Small);
+    Text(upper.c_str(), P().TextFaint);
+    Fonts::Pop();
+    ImGui::Dummy(ImVec2(0.0f, S(4)));
+}
+
 void Blaze::Ui::Section(const char* title)
 {
     if (ImGui::GetCursorPosY() > ImGui::GetStyle().WindowPadding.y + 1.0f)
         ImGui::Dummy(ImVec2(0.0f, S(6)));
+    Caption(title);
+}
 
-    Fonts::Push(Fonts::SmallSemiBold);
-    Text(Visible(title).c_str(), P().TextMuted);
+void Blaze::Ui::Readout(const char* label, const char* value, Tone tone)
+{
+    const float x0 = ImGui::GetCursorPosX();
+    const float split = std::max(S(110), ImGui::GetContentRegionAvail().x * ReadoutSplit);
+    // A little more air than plain text lines (added above, so nothing extends past the last row).
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + S(3));
+    Text(label, P().TextMuted);
+    ImGui::SameLine(x0 + split);
+    Text(value, tone == Tone::Neutral ? P().Text : ToneColor(tone));
+}
+
+void Blaze::Ui::About(const char* description)
+{
+    if (!description)
+        return;
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem))
+        CurrentAbout = description;
+    if (!InlineDescriptions)
+        return;
+    Fonts::Push(Fonts::Small);
+    ImGui::PushStyleColor(ImGuiCol_Text, P().TextMuted);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - S(3));
+    TextWrapped(description);
+    ImGui::PopStyleColor();
     Fonts::Pop();
-    ImGui::Dummy(ImVec2(0.0f, S(2)));
 }
 
 void Blaze::Ui::BeginCard(const char* id, const char* title, const char* icon, float width)
 {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, P().Surface);
     ImGui::PushStyleColor(ImGuiCol_Border, P().Border);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, S(16, 14));
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, S(10));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, S(14, 12));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, S(6));
     ImGui::BeginChild(id, ImVec2(width, 0.0f), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding,
         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar(2);
@@ -683,7 +713,7 @@ void Blaze::Ui::BeginCard(const char* id, const char* title, const char* icon, f
     if (!title)
         return;
 
-    Fonts::Push(Fonts::SemiBold);
+    Fonts::Push(Fonts::Medium);
     if (icon)
     {
         Text(icon, P().TextMuted);
@@ -771,8 +801,8 @@ void Blaze::Ui::Stat(const char* label, const char* value, const char* change, T
     const float height = S(78);
     const ImVec2 start = ImGui::GetCursorScreenPos();
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(start, start + ImVec2(width, height), Col(P().Surface), S(10));
-    draw->AddRect(start, start + ImVec2(width, height), Col(P().Border), S(10));
+    draw->AddRectFilled(start, start + ImVec2(width, height), Col(P().Surface), S(6));
+    draw->AddRect(start, start + ImVec2(width, height), Col(P().Border), S(6));
 
     const ImVec2 pad = S(14, 12);
     const std::string labelText = icon ? std::string(icon) + "  " + label : std::string(label);
@@ -863,42 +893,48 @@ void Blaze::Ui::LineChart(const char* id, const float* values, int count, float 
 // widgets: controls
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+namespace
+{
+    float CheckSize() { return std::round(S(14)); }
+
+    // A square box with a hairline border; when on, a smaller ink square grows in its middle.
+    void DrawCheck(const ImVec2& start, float height, const std::string& text, bool value, bool hovered)
+    {
+        using namespace Blaze;
+        const float on = Anim::Toggle(ImGui::GetID("##on"), value, 20.0f);
+        const float hover = Anim::Toggle(ImGui::GetID("##hover"), hovered, 18.0f);
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        const float box = CheckSize();
+        const ImVec2 min(start.x, std::round(start.y + (height - box) * 0.5f));
+        draw->AddRectFilled(min, min + ImVec2(box, box), Col(Anim::Lerp(P().Surface, P().Elevated, hover)), S(3));
+        draw->AddRect(min, min + ImVec2(box, box), Col(Anim::Lerp(P().Border, P().TextFaint, hover * 0.6f)), S(3));
+        if (on > 0.01f)
+        {
+            const float inner = Anim::Lerp(S(2), S(8), Anim::EaseOutCubic(on));
+            const ImVec2 center = min + ImVec2(box * 0.5f, box * 0.5f);
+            draw->AddRectFilled(center - ImVec2(inner, inner) * 0.5f, center + ImVec2(inner, inner) * 0.5f, Col(P().Accent, on), S(1.5f));
+        }
+        if (!text.empty())
+            draw->AddText(ImVec2(min.x + box + S(10), start.y + (height - ImGui::GetTextLineHeight()) * 0.5f), Col(P().Text), text.c_str());
+    }
+}
+
 bool Blaze::Ui::Toggle(const char* label, bool* value, const char* description)
 {
     ImGui::PushID(label);
-    const std::string text = Visible(label);
     const float width = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    const float height = ImGui::GetFrameHeight();
     const ImVec2 start = ImGui::GetCursorScreenPos();
-    const float lineHeight = ImGui::GetTextLineHeight();
-    const float descriptionHeight = description ? SmallLineHeight() + S(2) : 0.0f;
-    const float height = std::max(ImGui::GetFrameHeight(), lineHeight + descriptionHeight + S(6));
-
     const bool changed = ImGui::InvisibleButton("##row", ImVec2(width, height));
     if (changed)
         *value = !*value;
     const bool hovered = ImGui::IsItemHovered();
     if (hovered)
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-    const float on = Anim::Toggle(ImGui::GetID("##on"), *value, 16.0f);
-    const float hover = Anim::Toggle(ImGui::GetID("##hover"), hovered, 18.0f);
-
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    const ImVec2 size = S(34, 20);
-    const ImVec2 track(start.x + width - size.x, start.y + (height - size.y) * 0.5f);
-    const ImVec4 off = Anim::Lerp(P().Field, P().FieldActive, hover);
-    const ImVec4 onColor = Anim::Lerp(P().Accent, P().AccentHover, hover);
-    draw->AddRectFilled(track, track + size, Col(Anim::Lerp(off, onColor, on)), size.y * 0.5f);
-    const float radius = size.y * 0.5f - S(3);
-    const ImVec2 knob(Anim::Lerp(track.x + S(3) + radius, track.x + size.x - S(3) - radius, on), track.y + size.y * 0.5f);
-    draw->AddCircleFilled(knob + ImVec2(0.0f, S(0.75f)), radius + S(0.5f), Col(ImVec4(0, 0, 0, Theme::IsDark() ? 0.35f : 0.18f)));
-    draw->AddCircleFilled(knob, radius, Col(P().Knob));
-
-    const float textY = start.y + (height - lineHeight - descriptionHeight) * 0.5f;
-    draw->AddText(ImVec2(start.x, textY), Col(P().Text), text.c_str());
-    if (description)
-        draw->AddText(Fonts::Small.font, Fonts::Small.Px(), ImVec2(start.x, textY + lineHeight + S(2)), Col(P().TextMuted), description);
-
+    DrawCheck(start, height, Visible(label), *value, hovered);
     ImGui::PopID();
+    About(description);
+    Gap();
     return changed;
 }
 
@@ -906,39 +942,16 @@ bool Blaze::Ui::Checkbox(const char* label, bool* value)
 {
     ImGui::PushID(label);
     const std::string text = Visible(label);
-    const float box = ImGui::GetFrameHeight() - S(8);
-    const ImVec2 start = ImGui::GetCursorScreenPos();
-    const ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
     const float height = ImGui::GetFrameHeight();
-    const float width = box + (!text.empty() ? ImGui::GetStyle().ItemInnerSpacing.x + textSize.x : 0.0f);
-
+    const float width = CheckSize() + (!text.empty() ? S(10) + ImGui::CalcTextSize(text.c_str()).x : 0.0f);
+    const ImVec2 start = ImGui::GetCursorScreenPos();
     const bool changed = ImGui::InvisibleButton("##box", ImVec2(width, height));
     if (changed)
         *value = !*value;
     const bool hovered = ImGui::IsItemHovered();
-    const float on = Anim::Toggle(ImGui::GetID("##on"), *value, 20.0f);
-    const float hover = Anim::Toggle(ImGui::GetID("##hover"), hovered, 18.0f);
-
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    const ImVec2 min(start.x, start.y + (height - box) * 0.5f);
-    const ImVec4 rest = Anim::Lerp(P().Field, P().FieldHover, hover);
-    draw->AddRectFilled(min, min + ImVec2(box, box), Col(Anim::Lerp(rest, P().Accent, on)), S(5));
-
-    if (on > 0.01f)
-    {
-        // a drawn check that grows in with the fill
-        const ImVec2 a = min + ImVec2(box * 0.24f, box * 0.52f);
-        const ImVec2 b = min + ImVec2(box * 0.42f, box * 0.70f);
-        const ImVec2 c = min + ImVec2(box * 0.76f, box * 0.32f);
-        const float t = Anim::EaseOutCubic(on);
-        draw->AddLine(a, Anim::Lerp(a, b, std::min(1.0f, t * 2.0f)), Col(P().OnAccent, on), S(1.8f));
-        if (t > 0.5f)
-            draw->AddLine(b, Anim::Lerp(b, c, (t - 0.5f) * 2.0f), Col(P().OnAccent, on), S(1.8f));
-    }
-
-    if (!text.empty())
-        draw->AddText(ImVec2(min.x + box + ImGui::GetStyle().ItemInnerSpacing.x, start.y + (height - textSize.y) * 0.5f), Col(P().Text), text.c_str());
-
+    if (hovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    DrawCheck(start, height, text, *value, hovered);
     ImGui::PopID();
     return changed;
 }
@@ -949,25 +962,37 @@ namespace
     {
         using namespace Blaze;
         ImGui::PushID(label);
-        const float width = std::max(1.0f, ImGui::GetContentRegionAvail().x);
-        const float x0 = ImGui::GetCursorPosX();
-        ImGui::TextUnformatted(Ui::Visible(label).c_str());
-        ImGui::SameLine(x0 + width - ImGui::CalcTextSize(shown).x);
-        Ui::Text(shown, P().TextMuted);
-
-        const float height = S(18);
+        ImGui::BeginGroup();
+        Label(label);
+        const float width = Ui::ControlWidth();
+        const float height = ImGui::GetFrameHeight() + S(4);
         const ImVec2 start = ImGui::GetCursorScreenPos();
-        ImGui::InvisibleButton("##track", ImVec2(width, height));
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+
+        // the value box
+        const ImVec2 textSize = ImGui::CalcTextSize(shown);
+        const float boxWidth = std::max(S(48), textSize.x + S(20));
+        draw->AddRectFilled(start, start + ImVec2(boxWidth, height), Col(P().Surface), S(4));
+        draw->AddRect(start, start + ImVec2(boxWidth, height), Col(P().Border), S(4));
+        draw->AddText(start + (ImVec2(boxWidth, height) - textSize) * 0.5f, Col(P().Text), shown);
+
+        // the track: a thin rail, an ink fill up to a small grip
+        const ImVec2 gripSize = Ui::S(22, 15);
+        const float gap = S(30);
+        const ImVec2 trackStart(start.x + boxWidth + gap, start.y);
+        const float trackWidth = std::max(S(40), width - boxWidth - gap);
+        ImGui::SetCursorScreenPos(trackStart);
+        ImGui::InvisibleButton("##track", ImVec2(trackWidth, height));
         const bool active = ImGui::IsItemActive();
         const bool hovered = ImGui::IsItemHovered();
         if (hovered || active)
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-
-        const float radius = S(7);
+        const float left = trackStart.x + gripSize.x * 0.5f;
+        const float right = trackStart.x + trackWidth - gripSize.x * 0.5f;
         bool changed = false;
         if (active && max > min)
         {
-            const float fraction = std::clamp((ImGui::GetIO().MousePos.x - start.x - radius) / (width - radius * 2.0f), 0.0f, 1.0f);
+            const float fraction = std::clamp((ImGui::GetIO().MousePos.x - left) / (right - left), 0.0f, 1.0f);
             float next = min + fraction * (max - min);
             if (step > 0.0f)
                 next = std::round(next / step) * step;
@@ -977,24 +1002,36 @@ namespace
                 changed = true;
             }
         }
-
         const float target = max > min ? std::clamp((*value - min) / (max - min), 0.0f, 1.0f) : 0.0f;
         const float t = Anim::To(ImGui::GetID("##fill"), target, active ? 40.0f : 16.0f);
-        const float grow = Anim::Toggle(ImGui::GetID("##grow"), hovered || active, 18.0f);
+        const float hover = Anim::Toggle(ImGui::GetID("##hover"), hovered || active, 18.0f);
 
-        ImDrawList* draw = ImGui::GetWindowDrawList();
-        const float cy = start.y + height * 0.5f;
-        const float left = start.x + radius;
-        const float right = start.x + width - radius;
-        const float knobX = Anim::Lerp(left, right, t);
-        const float thick = S(4);
-        draw->AddRectFilled(ImVec2(left - thick * 0.5f, cy - thick * 0.5f), ImVec2(right + thick * 0.5f, cy + thick * 0.5f), Col(P().Field), thick);
-        draw->AddRectFilled(ImVec2(left - thick * 0.5f, cy - thick * 0.5f), ImVec2(knobX, cy + thick * 0.5f), Col(P().Accent), thick);
-        const float r = Anim::Lerp(S(6), radius, grow);
-        draw->AddCircleFilled(ImVec2(knobX, cy + S(0.75f)), r + S(0.5f), Col(ImVec4(0, 0, 0, Theme::IsDark() ? 0.4f : 0.18f)));
-        draw->AddCircleFilled(ImVec2(knobX, cy), r, Col(P().Knob));
-        Description(description);
+        const float cy = std::round(trackStart.y + height * 0.5f);
+        const float thick = std::round(S(8));
+        const ImVec2 railMin(trackStart.x, cy - thick * 0.5f);
+        const ImVec2 railMax(trackStart.x + trackWidth, cy + thick * 0.5f);
+        draw->AddRectFilled(railMin, railMax, Col(P().Surface), thick * 0.5f);
+        draw->AddRect(railMin, railMax, Col(P().Border), thick * 0.5f);
+        const float gripX = Anim::Lerp(left, right, t);
+        if (gripX - railMin.x > S(2))
+            draw->AddRectFilled(railMin + Ui::S(1, 1), ImVec2(gripX, railMax.y - S(1)), Col(Anim::Lerp(P().Accent, P().AccentHover, hover)), thick * 0.5f);
+        const ImVec2 gripMin(std::round(gripX - gripSize.x * 0.5f), std::round(cy - gripSize.y * 0.5f));
+        draw->AddRectFilled(gripMin + ImVec2(0.0f, S(1)), gripMin + gripSize + ImVec2(0.0f, S(1)), Col(ImVec4(0, 0, 0, Theme::IsDark() ? 0.3f : 0.08f)), S(4));
+        draw->AddRectFilled(gripMin, gripMin + gripSize, Col(P().Knob), S(4));
+        draw->AddRect(gripMin, gripMin + gripSize, Col(Anim::Lerp(P().Border, P().TextFaint, hover)), S(4));
+        // three grip lines
+        for (int i = -1; i <= 1; ++i)
+        {
+            const float lx = std::round(gripMin.x + gripSize.x * 0.5f + static_cast<float>(i) * S(3)) + 0.5f;
+            draw->AddLine(ImVec2(lx, gripMin.y + S(4.5f)), ImVec2(lx, gripMin.y + gripSize.y - S(4.5f)), Col(P().TextMuted), std::max(1.0f, S(1)));
+        }
+
+        ImGui::SetCursorScreenPos(start);
+        ImGui::Dummy(ImVec2(width, height));
+        ImGui::EndGroup();
         ImGui::PopID();
+        Ui::About(description);
+        Gap();
         return changed;
     }
 }
@@ -1023,7 +1060,7 @@ bool Blaze::Ui::Button(const char* label, ButtonKind kind, ImVec2 size)
     if (size.x < 0.0f)
         size.x = std::max(1.0f, ImGui::GetContentRegionAvail().x);
     if (size.x == 0.0f)
-        size.x = textSize.x + padding.x * 2.0f + S(6);
+        size.x = textSize.x + padding.x * 2.0f + S(10);
     if (size.y == 0.0f)
         size.y = ImGui::GetFrameHeight();
 
@@ -1036,29 +1073,36 @@ bool Blaze::Ui::Button(const char* label, ButtonKind kind, ImVec2 size)
     if (hovered)
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
-    ImVec4 background, foreground;
+    ImVec4 background, foreground, border;
     switch (kind)
     {
     case ButtonKind::Primary:
-        background = Palette::Shade(Anim::Lerp(P().Accent, P().AccentHover, hover), -0.08f * press);
+        background = Anim::Lerp(Anim::Lerp(P().Accent, P().AccentHover, hover), P().Accent, press);
         foreground = P().OnAccent;
+        border = Palette::Alpha(P().Accent, 0.0f);
         break;
     case ButtonKind::Ghost:
-        background = Anim::Lerp(Palette::Alpha(P().FieldHover, 0.0f), P().FieldHover, std::max(hover, press));
+        background = Anim::Lerp(Palette::Alpha(P().Field, 0.0f), P().Field, std::max(hover, press));
         foreground = Anim::Lerp(P().TextMuted, P().Text, hover);
+        border = Palette::Alpha(P().Border, 0.0f);
         break;
     case ButtonKind::Danger:
-        background = Palette::Alpha(P().Danger, Anim::Lerp(0.12f, 0.2f, hover) + 0.06f * press);
+        background = Palette::Alpha(P().Danger, Anim::Lerp(0.06f, 0.12f, hover) + 0.06f * press);
         foreground = P().Danger;
+        border = Palette::Alpha(P().Danger, 0.35f);
         break;
     default:
-        background = Anim::Lerp(Anim::Lerp(P().Field, P().FieldHover, hover), P().FieldActive, press);
+        background = Anim::Lerp(Anim::Lerp(P().Surface, P().Elevated, hover), P().Field, press);
         foreground = P().Text;
+        border = Anim::Lerp(P().Border, P().TextFaint, hover * 0.7f);
         break;
     }
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(start, start + size, Col(background), ImGui::GetStyle().FrameRounding);
+    const float rounding = ImGui::GetStyle().FrameRounding;
+    draw->AddRectFilled(start, start + size, Col(background), rounding);
+    if (border.w > 0.0f)
+        draw->AddRect(start, start + size, Col(border), rounding);
     draw->AddText(start + (size - textSize) * 0.5f, Col(foreground), text.c_str());
     return clicked;
 }
@@ -1076,7 +1120,7 @@ bool Blaze::Ui::IconButton(const char* icon, const char* id, const char* tooltip
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(start, start + ImVec2(size, size), Col(P().FieldHover, hover), ImGui::GetStyle().FrameRounding);
+    draw->AddRectFilled(start, start + ImVec2(size, size), Col(P().Field, hover), ImGui::GetStyle().FrameRounding);
     const ImVec2 iconSize = ImGui::CalcTextSize(icon);
     draw->AddText(start + (ImVec2(size, size) - iconSize) * 0.5f, Col(Anim::Lerp(P().TextMuted, P().Text, hover)), icon);
 
@@ -1092,7 +1136,7 @@ bool Blaze::Ui::Segmented(const char* id, int* index, const char* const* items, 
 
     ImGui::PushID(id);
     if (width <= 0.0f)
-        width = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+        width = std::max(1.0f, ControlWidth());
 
     const float height = ImGui::GetFrameHeight();
     const ImVec2 start = ImGui::GetCursorScreenPos();
@@ -1100,14 +1144,13 @@ bool Blaze::Ui::Segmented(const char* id, int* index, const char* const* items, 
     const float rounding = ImGui::GetStyle().FrameRounding;
     const float inset = S(3);
     const float segment = (width - inset * 2.0f) / static_cast<float>(count);
-    draw->AddRectFilled(start, start + ImVec2(width, height), Col(P().Field), rounding);
+    draw->AddRectFilled(start, start + ImVec2(width, height), Col(P().Surface), rounding);
+    draw->AddRect(start, start + ImVec2(width, height), Col(P().Border), rounding);
 
     const float at = Anim::To(ImGui::GetID("##thumb"), static_cast<float>(*index), 16.0f);
     const ImVec2 thumbMin(start.x + inset + segment * at, start.y + inset);
     const ImVec2 thumbMax = thumbMin + ImVec2(segment, height - inset * 2.0f);
-    if (!Theme::IsDark())
-        draw->AddRectFilled(thumbMin + ImVec2(0.0f, S(1)), thumbMax + ImVec2(0.0f, S(1)), Col(ImVec4(0, 0, 0, 0.06f)), rounding - inset * 0.5f);
-    draw->AddRectFilled(thumbMin, thumbMax, Col(P().Raised), rounding - inset * 0.5f);
+    draw->AddRectFilled(thumbMin, thumbMax, Col(P().Accent), std::max(0.0f, rounding - inset * 0.5f));
 
     bool changed = false;
     for (int i = 0; i < count; ++i)
@@ -1127,7 +1170,7 @@ bool Blaze::Ui::Segmented(const char* id, int* index, const char* const* items, 
 
         const float selected = std::clamp(1.0f - std::fabs(at - static_cast<float>(i)), 0.0f, 1.0f);
         const float hover = Anim::Toggle(ImGui::GetItemID(), hovered, 18.0f);
-        const ImVec4 color = Anim::Lerp(Anim::Lerp(P().TextMuted, P().Text, hover * 0.6f), P().Text, selected);
+        const ImVec4 color = Anim::Lerp(Anim::Lerp(P().TextMuted, P().Text, hover), P().OnAccent, selected);
         const std::string text = Visible(items[i]);
         const ImVec2 size = ImGui::CalcTextSize(text.c_str());
         draw->AddText(ImVec2(itemMin.x + (segment - size.x) * 0.5f, itemMin.y + (height - size.y) * 0.5f), Col(color), text.c_str());
@@ -1141,54 +1184,81 @@ bool Blaze::Ui::Segmented(const char* id, int* index, const char* const* items, 
 
 float Blaze::Ui::ControlWidth()
 {
-    return std::min(S(210), ImGui::GetContentRegionAvail().x * 0.5f);
+    return std::min(S(280), ImGui::GetContentRegionAvail().x);
 }
 
 void Blaze::Ui::Row(const char* label, float controlWidth)
 {
     if (controlWidth <= 0.0f)
         controlWidth = ControlWidth();
-
-    const float x0 = ImGui::GetCursorPosX();
-    const float width = ImGui::GetContentRegionAvail().x;
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(Visible(label).c_str());
-    ImGui::SameLine(x0 + width - controlWidth);
+    Label(label);
     ImGui::SetNextItemWidth(controlWidth);
 }
 
 bool Blaze::Ui::Combo(const char* label, int* index, const char* const* items, int count, const char* description)
 {
+    ImGui::PushID(label);
+    ImGui::BeginGroup();
     Row(label);
-    // The frame is measured before BeginCombo, which moves into the popup window when open.
+    const float width = ImGui::CalcItemWidth();
+    const ImVec2 size(width, ImGui::GetFrameHeight());
     const ImVec2 min = ImGui::GetCursorScreenPos();
-    const ImVec2 max = min + ImVec2(ImGui::CalcItemWidth(), ImGui::GetFrameHeight());
+    const ImVec2 max = min + size;
+    if (ImGui::InvisibleButton("##field", size))
+        ImGui::OpenPopup("##list");
+    const bool hovered = ImGui::IsItemHovered();
+    if (hovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    const bool open = ImGui::IsPopupOpen("##list");
+    const float hover = Anim::Toggle(ImGui::GetID("##hover"), hovered || open, 18.0f);
+
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    bool changed = false;
+    const float rounding = ImGui::GetStyle().FrameRounding;
+    const ImVec2 padding = ImGui::GetStyle().FramePadding;
+    draw->AddRectFilled(min, max, Col(Anim::Lerp(P().Surface, P().Elevated, hover)), rounding);
+    draw->AddRect(min, max, Col(Anim::Lerp(P().Border, P().TextFaint, hover * 0.7f)), rounding);
     const char* preview = *index >= 0 && *index < count ? items[*index] : "";
-    const std::string id = std::string("##") + label;
-
-    const bool open = ImGui::BeginCombo(id.c_str(), preview, ImGuiComboFlags_NoArrowButton);
+    const float textY = min.y + (size.y - ImGui::GetTextLineHeight()) * 0.5f;
+    draw->PushClipRect(min, max - ImVec2(padding.x + S(16), 0.0f), true);
+    draw->AddText(ImVec2(min.x + padding.x, textY), Col(P().Text), preview);
+    draw->PopClipRect();
     const char* chevron = open ? ICON_LC_CHEVRON_UP : ICON_LC_CHEVRON_DOWN;
-    const ImVec2 size = ImGui::CalcTextSize(chevron);
-    draw->AddText(ImVec2(max.x - size.x - ImGui::GetStyle().FramePadding.x, min.y + (max.y - min.y - size.y) * 0.5f), Col(P().TextMuted), chevron);
+    const ImVec2 chevronSize = ImGui::CalcTextSize(chevron);
+    draw->AddText(ImVec2(max.x - chevronSize.x - padding.x, min.y + (size.y - chevronSize.y) * 0.5f), Col(P().TextMuted), chevron);
 
-    if (open)
+    // The list opens just under the field, the selected item highlighted.
+    bool changed = false;
+    ImGui::SetNextWindowPos(ImVec2(min.x, max.y + S(6)));
+    ImGui::SetNextWindowSize(ImVec2(width, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, S(5));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, S(6, 6));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, S(2)));
+    ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.0f, 0.5f));
+    if (ImGui::BeginPopup("##list", ImGuiWindowFlags_NoMove))
     {
         for (int i = 0; i < count; ++i)
         {
-            if (ImGui::Selectable(items[i], i == *index))
+            const bool selected = i == *index;
+            ImGui::PushStyleColor(ImGuiCol_Text, selected ? P().Text : P().TextMuted);
+            ImGui::PushID(i);
+            const std::string text = std::string("  ") + items[i];
+            if (ImGui::Selectable(text.c_str(), selected, ImGuiSelectableFlags_None, ImVec2(0.0f, S(28))))
             {
                 *index = i;
                 changed = true;
             }
-            if (i == *index)
+            ImGui::PopID();
+            ImGui::PopStyleColor();
+            if (selected && ImGui::IsWindowAppearing())
                 ImGui::SetItemDefaultFocus();
         }
-        ImGui::EndCombo();
+        ImGui::EndPopup();
     }
-
-    Description(description);
+    ImGui::PopStyleVar(4);
+    ImGui::EndGroup();
+    ImGui::PopID();
+    About(description);
+    Gap();
     return changed;
 }
 
@@ -1208,50 +1278,62 @@ namespace
 
 bool Blaze::Ui::TextInput(const char* label, std::string* value, const char* hint, const char* description)
 {
+    ImGui::BeginGroup();
     Row(label);
     const std::string id = std::string("##") + label;
     const bool changed = ImGui::InputTextWithHint(id.c_str(), hint, value->data(), value->capacity() + 1, ImGuiInputTextFlags_CallbackResize,
         ResizeString, value);
-    Description(description);
+    ImGui::EndGroup();
+    About(description);
+    Gap();
     return changed;
 }
 
 bool Blaze::Ui::Number(const char* label, float* value, float speed, float min, float max, const char* format, const char* description)
 {
+    ImGui::BeginGroup();
     Row(label);
     const std::string id = std::string("##") + label;
     const bool changed = ImGui::DragFloat(id.c_str(), value, speed, min, max, format);
-    Description(description);
+    ImGui::EndGroup();
+    About(description);
+    Gap();
     return changed;
 }
 
 bool Blaze::Ui::Number(const char* label, int* value, float speed, int min, int max, const char* description)
 {
+    ImGui::BeginGroup();
     Row(label);
     const std::string id = std::string("##") + label;
     const bool changed = ImGui::DragInt(id.c_str(), value, speed, min, max);
-    Description(description);
+    ImGui::EndGroup();
+    About(description);
+    Gap();
     return changed;
 }
 
 bool Blaze::Ui::Color(const char* label, ImVec4* color, bool alpha, const char* description)
 {
     const float swatch = ImGui::GetFrameHeight();
-    Row(label, swatch * 1.6f);
+    ImGui::BeginGroup();
     ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaPreviewHalf;
     flags |= alpha ? ImGuiColorEditFlags_AlphaBar : ImGuiColorEditFlags_NoAlpha;
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(swatch * 0.8f - S(1), ImGui::GetStyle().FramePadding.y));
     const std::string id = std::string("##") + label;
     const bool changed = ImGui::ColorEdit4(id.c_str(), &color->x, flags);
     ImGui::PopStyleVar();
-    Description(description);
+    ImGui::SameLine(0.0f, S(12));
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(Visible(label).c_str());
+    ImGui::EndGroup();
+    About(description);
+    Gap();
     return changed;
 }
 
 bool Blaze::Ui::Keybind(const char* label, int* key, const char* description)
 {
-    const float width = ControlWidth();
-    Row(label, width);
     const ImGuiID id = ImGui::GetID(label);
     const bool waiting = g_capturingKey == id;
     bool changed = false;
@@ -1275,11 +1357,13 @@ bool Blaze::Ui::Keybind(const char* label, int* key, const char* description)
         }
     }
 
-    const std::string text = std::string(ICON_LC_KEYBOARD "  ") + (waiting ? "Press a key..." : Input::KeyName(*key)) + "##" + label;
-    if (Button(text.c_str(), waiting ? ButtonKind::Primary : ButtonKind::Secondary, ImVec2(width, 0.0f)) && !waiting)
+    // An outlined button reading "Label: Key".
+    const std::string text = Visible(label) + ": " + (waiting ? std::string("press a key...") : Input::KeyName(*key)) + "##" + label;
+    if (Button(text.c_str(), waiting ? ButtonKind::Primary : ButtonKind::Secondary, ImVec2(ControlWidth(), 0.0f)) && !waiting)
         g_capturingKey = id;
 
-    Description(description);
+    About(description);
+    Gap();
     return changed;
 }
 
@@ -1433,7 +1517,7 @@ void Blaze::Notify::Draw()
         ImGui::SetNextWindowSize(ImVec2(width, 0.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f * scale, 12.0f * scale));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f * scale);
         ImGui::PushStyleColor(ImGuiCol_WindowBg, P().Elevated);
 
         char name[32];
@@ -1468,16 +1552,47 @@ void Blaze::Notify::Draw()
 // menu
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-Blaze::MenuPage& Blaze::Menu::AddPage(const char* title, const char* icon, std::function<void()> draw, const char* description, const char* group)
+Blaze::MenuTab& Blaze::MenuPage::AddTab(const char* title, std::function<void()> draw, const char* about)
+{
+    MenuTab tab;
+    tab.Title = title;
+    tab.Draw = std::move(draw);
+    tab.About = about ? about : "";
+    tabs.push_back(std::move(tab));
+    return tabs.back();
+}
+
+void Blaze::MenuPage::SetSelectedTab(int index)
+{
+    index = std::clamp(index, 0, std::max(0, static_cast<int>(tabs.size()) - 1));
+    if (index == selectedTab)
+        return;
+    selectedTab = index;
+    tabChanged = true;
+}
+
+void Blaze::MenuPage::SelectTab(const char* title)
+{
+    for (int i = 0; i < static_cast<int>(tabs.size()); ++i)
+        if (tabs[i].Title == title)
+            return SetSelectedTab(i);
+}
+
+Blaze::MenuPage& Blaze::Menu::AddPage(const char* title, const char* icon, const char* caption)
 {
     MenuPage page;
     page.Title = title;
     page.Icon = icon ? icon : "";
-    page.Draw = std::move(draw);
-    page.Description = description ? description : "";
-    page.Group = group ? group : "";
+    page.Caption = caption ? caption : "";
     pages.push_back(std::move(page));
     return pages.back();
+}
+
+Blaze::MenuPage& Blaze::Menu::AddPage(const char* title, const char* icon, std::function<void()> draw, const char* caption)
+{
+    MenuPage& page = AddPage(title, icon, caption);
+    page.AddTab(title, std::move(draw));
+    return page;
 }
 
 void Blaze::Menu::SetSelected(int index)
@@ -1487,13 +1602,57 @@ void Blaze::Menu::SetSelected(int index)
         return;
     selected = index;
     pageProgress = 0.0f;
+    navProgress = 0.0f;
+    ResetAbout();
 }
 
 void Blaze::Menu::Select(const char* title)
 {
+    const char* slash = std::strchr(title, '/');
+    const std::string pageTitle = slash ? std::string(title, slash) : std::string(title);
     for (int i = 0; i < static_cast<int>(pages.size()); ++i)
-        if (pages[i].Title == title)
-            return SetSelected(i);
+        if (pages[i].Title == pageTitle)
+        {
+            SetSelected(i);
+            if (slash)
+                pages[i].SelectTab(slash + 1);
+            return;
+        }
+}
+
+Blaze::MenuTab* Blaze::Menu::CurrentTab()
+{
+    MenuPage* page = Page(selected);
+    return page && !page->Tabs().empty() ? &page->tabs[page->SelectedTab()] : nullptr;
+}
+
+void Blaze::Menu::ResetAbout()
+{
+    const MenuTab* tab = CurrentTab();
+    Ui::CurrentAbout = tab ? tab->About : std::string();
+}
+
+namespace
+{
+    float MenuPad() { return 18.0f * Blaze::Ui::Scale; }
+    float MenuTitleY() { return 17.0f * Blaze::Ui::Scale; }
+    float MenuBodyTop() { return 54.0f * Blaze::Ui::Scale; }
+
+    // A soft shadow under the window, drawn behind every ImGui window.
+    void DrawMenuShadow(const ImVec2& origin, const ImVec2& size)
+    {
+        ImDrawList* draw = ImGui::GetBackgroundDrawList();
+        const float scale = Blaze::Ui::Scale;
+        const float rounding = ImGui::GetStyle().WindowRounding;
+        const float strength = Blaze::Theme::IsDark() ? 0.09f : 0.028f;
+        for (int i = 1; i <= 10; ++i)
+        {
+            const float grow = static_cast<float>(i) * 2.4f * scale;
+            const ImVec2 offset(0.0f, 6.0f * scale);
+            draw->AddRectFilled(origin - ImVec2(grow, grow) + offset, origin + size + ImVec2(grow, grow) + offset,
+                Blaze::Theme::U32(ImVec4(0, 0, 0, strength * (1.0f - static_cast<float>(i) / 11.0f))), rounding + grow);
+        }
+    }
 }
 
 void Blaze::Menu::Draw(float visibility, bool interactive)
@@ -1539,75 +1698,73 @@ void Blaze::Menu::Draw(float visibility, bool interactive)
         restPosition = ImGui::GetWindowPos();
 
     const ImVec2 origin = ImGui::GetWindowPos();
-    const ImVec2 windowSize = ImGui::GetWindowSize();
-    windowCenter = origin + windowSize * 0.5f;
-    const float sidebar = SidebarWidth * scale;
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(origin, origin + ImVec2(sidebar, windowSize.y), Theme::U32(p.Sidebar), ImGui::GetStyle().WindowRounding,
-        ImDrawFlags_RoundCornersLeft);
-    draw->AddLine(origin + ImVec2(sidebar, 0.0f), origin + ImVec2(sidebar, windowSize.y), Theme::U32(p.Border));
+    const ImVec2 size = ImGui::GetWindowSize();
+    windowCenter = origin + size * 0.5f;
+    DrawMenuShadow(origin, size);
 
-    DrawSidebar(sidebar, windowSize.y);
-    ImGui::SetCursorPos(ImVec2(sidebar + 1.0f, 0.0f));
-    DrawContent(windowSize - ImVec2(sidebar + 1.0f, 0.0f));
+    // A tab switched from code (or a click) since the last frame replays the content transition.
+    if (MenuPage* page = Page(selected); page && page->tabChanged)
+    {
+        page->tabChanged = false;
+        pageProgress = 0.0f;
+        ResetAbout();
+    }
+    pageProgress = std::min(1.0f, pageProgress + Anim::Delta() / 0.26f);
+    navProgress = std::min(1.0f, navProgress + Anim::Delta() / 0.26f);
+
+    const float rail = RailWidth * scale;
+    const float nav = NavWidth * scale;
+    const float content = ShowStatus ? ContentWidth * scale : size.x - rail - nav;
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const float lines[] = { rail, rail + nav, rail + nav + content };
+    for (int i = 0; i < (ShowStatus ? 3 : 2); ++i)
+        draw->AddLine(origin + ImVec2(lines[i], 0.0f), origin + ImVec2(lines[i], size.y), Theme::U32(p.Border));
+
+    DrawRail(rail, size.y);
+    DrawNav(rail, nav, size.y);
+    Ui::InlineDescriptions = !ShowStatus;
+    if (Ui::CurrentAbout.empty())
+        ResetAbout();
+    DrawContent(ImVec2(rail + nav + 1.0f, 0.0f), ImVec2(content - 1.0f, size.y));
+    if (ShowStatus)
+        DrawStatus(ImVec2(rail + nav + content + 1.0f, 0.0f), ImVec2(size.x - rail - nav - content - 1.0f, size.y));
     ImGui::End();
 }
 
-void Blaze::Menu::DrawSidebar(float width, float height)
+void Blaze::Menu::DrawRail(float width, float height)
 {
     const float scale = Ui::Scale;
     const Palette& p = Theme::Colors();
-    ImGui::SetCursorPos(ImVec2(0.0f, 0.0f));
-    ImGui::BeginChild("##sidebar", ImVec2(width, height), ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar);
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    const float pad = 14.0f * scale;
     const ImVec2 origin = ImGui::GetWindowPos();
 
-    // brand: an accent tile with the logo, the title and an optional subtitle
-    const float mark = 32.0f * scale;
-    const ImVec2 markMin = origin + ImVec2(pad + 2.0f * scale, 20.0f * scale);
-    draw->AddRectFilled(markMin, markMin + ImVec2(mark, mark), Theme::U32(p.Accent), 9.0f * scale);
-    const ImVec2 logoSize = Fonts::IconLarge.CalcTextSize(Logo.c_str());
-    draw->AddText(Fonts::IconLarge.font, Fonts::IconLarge.Px(), markMin + (ImVec2(mark, mark) - logoSize) * 0.5f, Theme::U32(p.OnAccent), Logo.c_str());
-    const float textX = markMin.x + mark + 11.0f * scale;
-    if (Subtitle.empty())
-        draw->AddText(Fonts::SemiBold.font, Fonts::SemiBold.Px(), ImVec2(textX, markMin.y + (mark - Fonts::SemiBold.Px()) * 0.5f), Theme::U32(p.Text),
-            Title.c_str());
-    else
-    {
-        draw->AddText(Fonts::SemiBold.font, Fonts::SemiBold.Px(), ImVec2(textX, markMin.y - 1.0f * scale), Theme::U32(p.Text), Title.c_str());
-        draw->AddText(Fonts::Small.font, Fonts::Small.Px(), ImVec2(textX, markMin.y + mark - Fonts::Small.Px() + 1.0f * scale), Theme::U32(p.TextMuted),
-            Subtitle.c_str());
-    }
+    // brand mark: a bold letter (or icon) with the brand dot at its baseline
+    const std::string mark = !Logo.empty() ? Logo : Title.empty() ? std::string() : std::string(1, static_cast<char>(std::toupper(static_cast<unsigned char>(Title[0]))));
+    const ImVec2 markSize = Fonts::Brand.CalcTextSize(mark.c_str());
+    const float dot = 2.6f * scale;
+    const ImVec2 markPos = origin + ImVec2((width - markSize.x - dot * 2.4f) * 0.5f, 29.0f * scale - markSize.y * 0.5f);
+    draw->AddText(Fonts::Brand.font, Fonts::Brand.Px(), markPos, Theme::U32(p.Text), mark.c_str());
+    draw->AddCircleFilled(markPos + ImVec2(markSize.x + dot * 1.3f, markSize.y * 0.78f), dot, Theme::U32(p.Brand));
 
-    // Navigation. Items draw on channel 1 and the gliding selection pill on channel 0 beneath them.
-    float y = 20.0f * scale + mark + 22.0f * scale;
-    const float itemHeight = 34.0f * scale;
-    const float itemWidth = width - pad * 2.0f;
+    // Icons: top-aligned pages from the top, pinned pages from the bottom. The tile glides beneath them.
+    const float tile = 40.0f * scale;
+    const float pitch = 52.0f * scale;
+    const float top = 99.0f * scale;
+    const float bottom = height - 40.0f * scale;
+    int tops = 0;
+    int bottoms = static_cast<int>(std::count_if(pages.begin(), pages.end(), [](const MenuPage& page) { return page.PinBottom; }));
     float selectedY = 0.0f;
-    const std::string* group = nullptr;
     draw->ChannelsSplit(2);
     draw->ChannelsSetCurrent(1);
 
     for (int i = 0; i < static_cast<int>(pages.size()); ++i)
     {
         const MenuPage& page = pages[i];
-        if (!group || page.Group != *group)
-        {
-            group = &page.Group;
-            if (!group->empty())
-            {
-                if (i > 0)
-                    y += 10.0f * scale;
-                draw->AddText(Fonts::SmallSemiBold.font, Fonts::SmallSemiBold.Px(), origin + ImVec2(pad + 10.0f * scale, y + 4.0f * scale),
-                    Theme::U32(p.TextFaint), group->c_str());
-                y += 26.0f * scale;
-            }
-        }
-
-        ImGui::SetCursorPos(ImVec2(pad, y));
+        const float cy = page.PinBottom ? bottom - static_cast<float>(--bottoms) * pitch : top + static_cast<float>(tops++) * pitch;
+        const ImVec2 min((width - tile) * 0.5f, cy - tile * 0.5f);
+        ImGui::SetCursorPos(min);
         ImGui::PushID(i);
-        if (ImGui::InvisibleButton("##nav", ImVec2(itemWidth, itemHeight)))
+        if (ImGui::InvisibleButton("##rail", ImVec2(tile, tile)))
             SetSelected(i);
         const bool hovered = ImGui::IsItemHovered();
         if (hovered)
@@ -1615,130 +1772,173 @@ void Blaze::Menu::DrawSidebar(float width, float height)
         const float hover = Anim::Toggle(ImGui::GetID("##hover"), hovered && i != selected, 18.0f);
         const float active = Anim::Toggle(ImGui::GetID("##active"), i == selected, 16.0f);
         ImGui::PopID();
+        Ui::Tooltip(page.Title.c_str());
 
-        const ImVec2 min = origin + ImVec2(pad, y);
-        if (hover > 0.001f)
-            draw->AddRectFilled(min, min + ImVec2(itemWidth, itemHeight), Theme::U32(p.Field, hover * 0.55f), 8.0f * scale);
-        const float textY = min.y + (itemHeight - ImGui::GetTextLineHeight()) * 0.5f;
-        const ImVec4 iconColor = Anim::Lerp(Anim::Lerp(p.TextMuted, p.Text, hover), p.Accent, active);
-        const ImVec4 labelColor = Anim::Lerp(Anim::Lerp(p.TextMuted, p.Text, hover), p.Text, active);
-        draw->AddText(ImVec2(min.x + 11.0f * scale, textY), Theme::U32(iconColor), page.Icon.c_str());
-        const Font& labelFont = active > 0.5f ? Fonts::Medium : Fonts::Regular;
-        draw->AddText(labelFont.font, Fonts::Regular.Px(), ImVec2(min.x + 40.0f * scale, textY), Theme::U32(labelColor), page.Title.c_str());
-
-        if (!page.Badge.empty())
-        {
-            const ImVec2 badgeSize = Fonts::Small.CalcTextSize(page.Badge.c_str()) + ImVec2(12.0f, 4.0f) * scale;
-            const ImVec2 badgeMin(min.x + itemWidth - badgeSize.x - 8.0f * scale, min.y + (itemHeight - badgeSize.y) * 0.5f);
-            draw->AddRectFilled(badgeMin, badgeMin + badgeSize, Theme::U32(p.Accent, 0.16f), badgeSize.y * 0.5f);
-            draw->AddText(Fonts::Small.font, Fonts::Small.Px(), badgeMin + ImVec2(6.0f, 2.0f) * scale, Theme::U32(p.Accent), page.Badge.c_str());
-        }
-
+        const ImVec2 center = origin + min + ImVec2(tile, tile) * 0.5f;
+        const ImVec4 color = Anim::Lerp(Anim::Lerp(p.TextMuted, p.Text, hover), p.OnAccent, active);
+        const ImVec2 glyph = Fonts::IconLarge.CalcTextSize(page.Icon.c_str());
+        draw->AddText(Fonts::IconLarge.font, Fonts::IconLarge.Px(), center - glyph * 0.5f, Theme::U32(color), page.Icon.c_str());
+        if (page.Badge)
+            draw->AddCircleFilled(center + ImVec2(tile * 0.3f, -tile * 0.3f), 3.0f * scale, Theme::U32(p.Brand));
         if (i == selected)
-            selectedY = y;
-        y += itemHeight + 2.0f * scale;
+            selectedY = min.y;
     }
 
     draw->ChannelsSetCurrent(0);
     if (!pages.empty())
     {
-        const float pillY = Anim::To(ImGui::GetID("##pill"), selectedY, 18.0f);
-        const ImVec2 pillMin = origin + ImVec2(pad, pillY);
-        draw->AddRectFilled(pillMin, pillMin + ImVec2(itemWidth, itemHeight), Theme::U32(p.Field), 8.0f * scale);
+        const float y = Anim::To(ImGui::GetID("##railtile"), selectedY, 18.0f);
+        const ImVec2 min = origin + ImVec2((width - tile) * 0.5f, y);
+        draw->AddRectFilled(min, min + ImVec2(tile, tile), Theme::U32(p.Accent), 9.0f * scale);
     }
     draw->ChannelsMerge();
-
-    // footer: custom content, then the theme switch
-    const float footer = height - pad - ImGui::GetFrameHeight();
-    if (SidebarFooter)
-    {
-        // just above the theme switch, using the height it took on the previous frame
-        const float bottom = ShowThemeSwitch ? footer - 10.0f * scale : height - pad;
-        ImGui::SetCursorPos(ImVec2(pad, std::max(y + 8.0f * scale, bottom - footerHeight)));
-        ImGui::PushItemWidth(itemWidth);
-        ImGui::BeginGroup();
-        SidebarFooter();
-        ImGui::EndGroup();
-        ImGui::PopItemWidth();
-        footerHeight = ImGui::GetItemRectSize().y;
-    }
-    if (ShowThemeSwitch)
-    {
-        ImGui::SetCursorPos(ImVec2(pad, footer));
-        int mode = Theme::IsDark() ? 1 : 0;
-        static const char* const items[] = { ICON_LC_SUN "  Light", ICON_LC_MOON "  Dark" };
-        if (Ui::Segmented("##theme", &mode, items, itemWidth))
-            Theme::Set(mode == 1 ? ThemeMode::Dark : ThemeMode::Light);
-    }
-    ImGui::EndChild();
 }
 
-void Blaze::Menu::DrawContent(const ImVec2& size)
+void Blaze::Menu::DrawNav(float x, float width, float height)
 {
     const float scale = Ui::Scale;
     const Palette& p = Theme::Colors();
-    ImGui::BeginChild("##content", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar);
-    const ImVec2 origin = ImGui::GetWindowPos();
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    const float pad = 26.0f * scale;
-    const float headerHeight = 72.0f * scale;
+    const ImVec2 origin = ImGui::GetWindowPos() + ImVec2(x, 0.0f);
     MenuPage* page = Page(selected);
+    const float t = Anim::EaseOutCubic(navProgress);
+    const float slide = (1.0f - t) * 6.0f * scale;
+    const float pad = MenuPad();
 
-    pageProgress = std::min(1.0f, pageProgress + Anim::Delta() / 0.26f);
-    const float t = Anim::EaseOutCubic(pageProgress);
-
-    // header: page title + description, actions on the right
     if (page)
     {
-        const float titleY = page->Description.empty() ? (headerHeight - Fonts::Heading.Px()) * 0.5f : 17.0f * scale;
-        const float slide = (1.0f - t) * 6.0f * scale;
-        draw->AddText(Fonts::Heading.font, Fonts::Heading.Px(), origin + ImVec2(pad + slide, titleY), Theme::U32(p.Text, t), page->Title.c_str());
-        if (!page->Description.empty())
-            draw->AddText(origin + ImVec2(pad + slide, titleY + Fonts::Heading.Px() + 3.0f * scale), Theme::U32(p.TextMuted, t), page->Description.c_str());
+        draw->AddText(Fonts::Title.font, Fonts::Title.Px(), origin + ImVec2(pad + slide, MenuTitleY()), Theme::U32(p.Text, t), page->Title.c_str());
+        if (!page->Caption.empty())
+        {
+            std::string caption = page->Caption;
+            std::transform(caption.begin(), caption.end(), caption.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+            draw->AddText(Fonts::Small.font, Fonts::Small.Px(), origin + ImVec2(pad + slide, 59.0f * scale), Theme::U32(p.TextFaint, t), caption.c_str());
+        }
+
+        // Tabs. The selected one is in full text color with a short marker at the column's right edge.
+        float y = 102.0f * scale;
+        const float row = 29.0f * scale;
+        float selectedY = y;
+        for (int i = 0; i < static_cast<int>(page->Tabs().size()); ++i)
+        {
+            const MenuTab& tab = page->Tabs()[i];
+            ImGui::SetCursorPos(ImVec2(x + pad * 0.5f, y));
+            ImGui::PushID(selected * 1000 + i);
+            if (ImGui::InvisibleButton("##tab", ImVec2(width - pad, row)))
+                page->SetSelectedTab(i);
+            const bool hovered = ImGui::IsItemHovered();
+            if (hovered)
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            const float hover = Anim::Toggle(ImGui::GetID("##hover"), hovered, 18.0f);
+            const float active = Anim::Toggle(ImGui::GetID("##active"), i == page->SelectedTab(), 16.0f);
+            ImGui::PopID();
+            const ImVec4 color = Anim::Lerp(Anim::Lerp(p.TextFaint, p.TextMuted, hover), p.Text, active);
+            const float textY = y + (row - ImGui::GetTextLineHeight()) * 0.5f;
+            draw->AddText(origin + ImVec2(pad + slide, textY), Theme::U32(color, t), tab.Title.c_str());
+            if (i == page->SelectedTab())
+                selectedY = y;
+            y += row;
+        }
+        if (!page->Tabs().empty())
+        {
+            // Keyed per page so switching pages snaps the marker instead of gliding across pages.
+            char key[32];
+            snprintf(key, sizeof(key), "##tabmarker%d", selected);
+            const float markerY = Anim::To(ImGui::GetID(key), selectedY, 18.0f);
+            const float markerHeight = 11.0f * scale;
+            const float mx = origin.x + width - 15.0f * scale;
+            const float my = origin.y + markerY + (row - markerHeight) * 0.5f;
+            draw->AddRectFilled(ImVec2(mx, my), ImVec2(mx + 2.0f * scale, my + markerHeight), Theme::U32(p.Text, t), scale);
+        }
     }
 
-    const float button = ImGui::GetFrameHeight();
-    float x = size.x - pad + 6.0f * scale;
-    if (ShowCloseButton)
+    // footer: brand name, subtitle and version on one baseline, level with the bottom rail icon
+    const float titleTop = height - 40.0f * scale - Fonts::Title.Px() * 0.5f;
+    const ImVec2 footer = origin + ImVec2(pad, titleTop);
+    draw->AddText(Fonts::Title.font, Fonts::Title.Px(), footer, Theme::U32(p.Text), Title.c_str());
+    float cursor = footer.x + Fonts::Title.CalcTextSize(Title.c_str()).x + 8.0f * scale;
+    const float smallY = footer.y + Fonts::Title.Px() - Fonts::Small.Px() - 1.0f * scale;
+    if (!Subtitle.empty())
     {
-        x -= button;
-        ImGui::SetCursorPos(ImVec2(x, (headerHeight - button) * 0.5f));
-        if (Ui::IconButton(ICON_LC_X, "##close", "Hide menu") && OnClose)
-            OnClose();
+        draw->AddText(Fonts::Small.font, Fonts::Small.Px(), ImVec2(cursor, smallY), Theme::U32(p.TextMuted), Subtitle.c_str());
+        cursor += Fonts::Small.CalcTextSize(Subtitle.c_str()).x + 6.0f * scale;
     }
-    if (HeaderActions)
-    {
-        // laid out right-to-left into a group measured on the previous frame
-        const float actionsWidth = Anim::To(ImGui::GetID("##actionsWidth"), lastActionsWidth, 30.0f);
-        ImGui::SetCursorPos(ImVec2(x - actionsWidth - 4.0f * scale, (headerHeight - button) * 0.5f));
-        ImGui::BeginGroup();
-        HeaderActions();
-        ImGui::EndGroup();
-        lastActionsWidth = ImGui::GetItemRectSize().x;
-    }
-    draw->AddLine(origin + ImVec2(0.0f, headerHeight), origin + ImVec2(size.x, headerHeight), Theme::U32(p.Border));
+    if (!Version.empty())
+        draw->AddText(Fonts::SmallSemiBold.font, Fonts::SmallSemiBold.Px(), ImVec2(cursor, smallY), Theme::U32(p.Text), Version.c_str());
+}
 
-    // Page body: fades and rises in after a page switch. Each page keeps its own scroll position.
-    ImGui::SetCursorPos(ImVec2(0.0f, headerHeight + 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(pad, 18.0f * scale));
+void Blaze::Menu::DrawContent(const ImVec2& position, const ImVec2& size)
+{
+    const float scale = Ui::Scale;
+    const Palette& p = Theme::Colors();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 origin = ImGui::GetWindowPos() + position;
+    MenuPage* page = Page(selected);
+    MenuTab* tab = CurrentTab();
+    const float t = Anim::EaseOutCubic(pageProgress);
+    const float pad = MenuPad();
+    if (tab)
+        draw->AddText(Fonts::Title.font, Fonts::Title.Px(), origin + ImVec2(pad + (1.0f - t) * 6.0f * scale, MenuTitleY()), Theme::U32(p.Text, t),
+            tab->Title.c_str());
+
+    // Body: fades and rises in after a switch. Each tab keeps its own scroll position.
+    ImGui::SetCursorPos(position + ImVec2(0.0f, MenuBodyTop()));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(pad, 6.0f * scale));
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * t);
-    ImGuiWindowFlags pageFlags = ImGuiWindowFlags_NoBackground;
+    ImGuiWindowFlags bodyFlags = ImGuiWindowFlags_NoBackground;
     if (page && !page->Scroll)
-        pageFlags |= ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
-    char id[32];
-    snprintf(id, sizeof(id), "##page%d", selected);
-    ImGui::BeginChild(id, ImVec2(size.x, size.y - headerHeight - 1.0f), ImGuiChildFlags_AlwaysUseWindowPadding, pageFlags);
+        bodyFlags |= ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    char id[48];
+    snprintf(id, sizeof(id), "##content%d.%d", selected, page ? page->SelectedTab() : 0);
+    ImGui::BeginChild(id, ImVec2(size.x, size.y - MenuBodyTop() - 4.0f * scale), ImGuiChildFlags_AlwaysUseWindowPadding, bodyFlags);
     ImGui::PopStyleVar(2);
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * t);
     if (t < 1.0f)
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (1.0f - t) * 10.0f * scale);
-    if (page && page->Draw)
-        page->Draw();
-    if (page && page->Scroll)
+    if (tab && tab->Draw)
+        tab->Draw();
+    if (!page || page->Scroll)
         ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
     ImGui::PopStyleVar();
     ImGui::EndChild();
+}
+
+void Blaze::Menu::DrawStatus(const ImVec2& position, const ImVec2& size)
+{
+    const float scale = Ui::Scale;
+    const Palette& p = Theme::Colors();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 origin = ImGui::GetWindowPos() + position;
+    const float pad = MenuPad();
+    draw->AddText(Fonts::Title.font, Fonts::Title.Px(), origin + ImVec2(pad, MenuTitleY()), Theme::U32(p.Text), StatusTitle.c_str());
+
+    // live readouts above, the ABOUT hint for the hovered control anchored near the bottom
+    const float aboutTop = size.y - 168.0f * scale;
+    ImGui::SetCursorPos(position + ImVec2(0.0f, MenuBodyTop()));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(pad, 6.0f * scale));
+    ImGui::BeginChild("##status", ImVec2(size.x, aboutTop - MenuBodyTop() - 8.0f * scale), ImGuiChildFlags_AlwaysUseWindowPadding,
+        ImGuiWindowFlags_NoBackground);
+    ImGui::PopStyleVar();
+    const MenuPage* page = Page(selected);
+    if (page && page->Status)
+        page->Status();
+    else if (Status)
+        Status();
     ImGui::EndChild();
+
+    if (Ui::CurrentAbout.empty())
+        return;
+    ImGui::SetCursorPos(position + ImVec2(pad, aboutTop));
+    ImGui::BeginGroup();
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + size.x - pad * 2.5f);
+    Ui::Caption(AboutTitle.c_str());
+    Fonts::Push(Fonts::Small);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+    Ui::Text(Ui::CurrentAbout.c_str(), p.TextMuted);
+    ImGui::PopStyleVar();
+    Fonts::Pop();
+    ImGui::PopTextWrapPos();
+    ImGui::EndGroup();
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -1749,6 +1949,7 @@ Blaze::Overlay::Overlay(const OverlayOptions& options) : options(options), menuV
 {
     menu.Title = options.Title;
     menu.Subtitle = options.Subtitle;
+    menu.Version = options.Version;
     menu.Logo = options.Logo;
     menu.Size = options.MenuSize;
     menu.OnClose = [this] { menuVisible = false; };

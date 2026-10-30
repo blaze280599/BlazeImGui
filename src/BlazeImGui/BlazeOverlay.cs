@@ -28,13 +28,13 @@ public abstract class BlazeOverlay : ClickableTransparentOverlay.Overlay
     {
         Options = options;
         _menuVisible = options.StartVisible;
-        Menu = new Menu { Title = options.Title, Subtitle = options.Subtitle, Logo = options.Logo, Size = options.MenuSize };
+        Menu = new Menu { Title = options.Title, Subtitle = options.Subtitle, Version = options.Version, Logo = options.Logo, Size = options.MenuSize };
         Menu.CloseRequested += () => MenuVisible = false;
     }
 
     public OverlayOptions Options { get; }
 
-    /// <summary>The sidebar menu. Add pages with <c>Menu.AddPage(title, icon, draw)</c>.</summary>
+    /// <summary>The menu window. Add pages with <c>Menu.AddPage(title, icon, caption)</c>, then tabs with <c>page.AddTab(title, draw)</c>.</summary>
     public Menu Menu { get; }
 
     /// <summary>The overlay's window handle (valid after startup).</summary>

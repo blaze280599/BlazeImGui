@@ -80,7 +80,7 @@ public static class Notify
             ImGui.SetNextWindowSize(new Vector2(width, 0));
             ImGui.PushStyleVar(ImGuiStyleVar.Alpha, alpha);
             ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(14, 12) * scale);
-            ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 10 * scale);
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 6 * scale);
             ImGui.PushStyleColor(ImGuiCol.WindowBg, p.Elevated);
             ImGui.Begin($"##toast{toast.Id}", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoNav |
                 ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.AlwaysAutoResize);

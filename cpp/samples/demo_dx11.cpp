@@ -2,7 +2,7 @@
 // Build (Developer Command Prompt), with Dear ImGui 1.92+ in IMGUI_DIR (core files + backends/imgui_impl_win32/dx11):
 //   cl /std:c++17 /EHsc /O2 /I%IMGUI_DIR% /I..\BlazeImGui demo_dx11.cpp ..\BlazeImGui\*.cpp %IMGUI_DIR%\*.cpp
 //      d3d11.lib dxgi.lib user32.lib gdi32.lib
-// Flags: --theme light, --page <title>, --screenshot <file.bmp> (renders a few frames, saves the window, exits).
+// Flags: --theme dark, --page <page> or <page/tab>, --screenshot <file.bmp> (renders a few frames, saves the window, exits).
 #include <d3d11.h>
 #include <windows.h>
 
@@ -111,10 +111,10 @@ int main(int argc, char** argv)
     using namespace Blaze;
     const char* screenshot = nullptr;
     const char* startPage = nullptr;
-    bool light = false;
+    bool dark = false;
     for (int i = 1; i < argc; ++i)
     {
-        if (!std::strcmp(argv[i], "--theme") && i + 1 < argc) light = !std::strcmp(argv[++i], "light");
+        if (!std::strcmp(argv[i], "--theme") && i + 1 < argc) dark = !std::strcmp(argv[++i], "dark");
         else if (!std::strcmp(argv[i], "--page") && i + 1 < argc) startPage = argv[++i];
         else if (!std::strcmp(argv[i], "--screenshot") && i + 1 < argc) screenshot = argv[++i];
     }
@@ -146,80 +146,111 @@ int main(int argc, char** argv)
     ImGui_ImplDX11_Init(g_device, g_context);
 
     OverlayOptions options;
-    options.Title = "Blaze Demo";
-    options.Subtitle = "C++ port";
-    options.Theme = light ? ThemeMode::Light : ThemeMode::Dark;
-    options.MenuSize = ImVec2(1040, 660);
+    options.Title = "blaze";
+    options.Subtitle = "C++";
+    options.Version = "v1.0.0";
+    options.Theme = dark ? ThemeMode::Dark : ThemeMode::Light;
     Overlay overlay(options);
 
-    bool esp = true, names = true, boxes = false, check = true;
-    float distance = 250.0f;
-    int mode = 0, segment = 1, key = VK_F6, count = 12;
-    std::string name = "Player";
+    bool esp = true, names = true, health = true, unfocused = false, check = true, saved = true;
+    float distance = 250.0f, smoothing = 4.5f;
+    int fov = 90, mode = 0, segment = 1, key = VK_F6, count = 12, theme = dark ? 1 : 0;
+    std::string name;
     ImVec4 color = Palette::Hex("#FF6B6B");
-    static const char* const modes[] = { "Nearest", "Lowest health", "Crosshair" };
-    static const char* const segments[] = { "Low", "Medium", "High" };
+    static const char* const modes[] = { "Automatic", "Manual", "Disabled" };
+    static const char* const segments[] = { "Low", "Mid", "High" };
+    static const char* const themes[] = { "Light", "Dark" };
     const float series[] = { 12, 18, 15, 22, 28, 24, 31, 29, 35, 33, 40, 38 };
 
-    overlay.menu.AddPage("Controls", ICON_LC_SLIDERS_HORIZONTAL, [&] {
-        Ui::Section("General");
-        Ui::BeginCard("general", "Visuals", ICON_LC_EYE);
-        Ui::SameLineRight(Ui::BadgeSize("Live").x);
-        Ui::Badge("Live", Tone::Success);
-        Ui::Toggle("Enable visuals", &esp, "Draw players and objects");
+    MenuPage& visuals = overlay.menu.AddPage("Visuals", ICON_LC_EYE, "Overlay");
+    visuals.AddTab("General", [&] {
+        Ui::Toggle("Enable visuals", &esp, "Draw players and objects in the world.");
         ImGui::BeginDisabled(!esp);
-        Ui::Toggle("Names", &names);
-        Ui::Toggle("Boxes", &boxes);
-        Ui::Slider("Max distance", &distance, 10, 500, "%.0f yd");
-        Ui::Combo("Mode", &mode, modes);
+        Ui::Slider("Max distance", &distance, 10, 500, "%.0f", "Players further away than this are not drawn. 150 - 300 suits most maps.");
+        Ui::Slider("Field of view", &fov, 30, 180, "%d", "How wide the drawn area is around the crosshair, in degrees.");
+        Ui::Toggle("Names", &names, "A name tag above each player.");
+        Ui::Toggle("Health bars", &health, "A thin bar beside each player, colored by health.");
+        ImGui::EndDisabled();
+        Ui::Toggle("Hide when game is unfocused", &unfocused, "Stops drawing while another window has focus.");
+    }, "What is drawn over the game. Hover a setting to read about it here.");
+    visuals.AddTab("Colors", [&] {
+        Ui::Color("Enemy", &color, true, "Boxes, names and the crosshair for enemies.");
+    }, "Colors used by the world drawings.");
+
+    MenuPage& controls = overlay.menu.AddPage("Controls", ICON_LC_CROSSHAIR, "Widgets");
+    controls.AddTab("Inputs", [&] {
+        Ui::Combo("Mode", &mode, modes, "How the overlay picks its target.");
+        Ui::Slider("Smoothing", &smoothing, 1, 10, "%.1f", "Higher values ease movement more.");
+        Ui::TextInput("Profile name", &name, "e.g. Raid night");
+        Ui::Number("Count", &count, 0.2f, 0, 99);
         Ui::Row("Quality");
         Ui::Segmented("##quality", &segment, segments);
-        Ui::Color("Enemy color", &color);
-        ImGui::EndDisabled();
-        Ui::EndCard();
-
-        Ui::Section("Input");
-        Ui::BeginCard("input");
-        Ui::Keybind("Toggle key", &key, "Click, then press a key");
-        Ui::TextInput("Name", &name, "Your name");
-        Ui::Number("Count", &count, 0.2f, 0, 99);
-        Ui::Checkbox("Remember", &check);
-        Ui::Button(ICON_LC_SAVE "  Save", ButtonKind::Primary);
-        ImGui::SameLine();
-        if (Ui::Button("Toast"))
+    }, "Dropdowns, sliders, fields and choices.");
+    controls.AddTab("Buttons", [&] {
+        if (Ui::Button("Save", ButtonKind::Secondary, ImVec2(Ui::ControlWidth(), 0.0f)))
             Notify::Show("Saved", "Settings written to disk", Tone::Success);
+        ImGui::Spacing();
+        Ui::Button("Primary", ButtonKind::Primary, ImVec2(Ui::ControlWidth(), 0.0f));
+        ImGui::Spacing();
+        Ui::Button("Ghost", ButtonKind::Ghost);
         ImGui::SameLine();
         Ui::Button("Delete", ButtonKind::Danger);
-        ImGui::SameLine();
-        Ui::Button("Cancel", ButtonKind::Ghost);
-        Ui::EndCard();
-    }, "Toggles, sliders, inputs and buttons", "Main");
+        ImGui::Spacing();
+        Ui::Checkbox("Players", &check);
+        ImGui::SameLine(0.0f, 18.0f);
+        Ui::Checkbox("NPCs", &names);
+        Ui::Keybind("Toggle key", &key, "Click, then press a key. Esc cancels, Backspace clears.");
+    }, "Outlined by default; primary is filled with the ink color.");
 
-    overlay.menu.AddPage("Dashboard", ICON_LC_LAYOUT_DASHBOARD, [&] {
-        if (Ui::BeginGrid("stats", 3))
+    MenuPage& charts = overlay.menu.AddPage("Charts", ICON_LC_CHART_SPLINE, "Live data");
+    charts.AddTab("Live", [&] {
+        if (Ui::BeginGrid("stats", 2))
         {
-            Ui::NextCell(); Ui::Stat("Players", "24", "+3", Tone::Success, ICON_LC_USERS);
-            Ui::NextCell(); Ui::Stat("Frame time", "6.9 ms", "-0.4", Tone::Success, ICON_LC_TIMER);
-            Ui::NextCell(); Ui::Stat("Errors", "2", "+1", Tone::Danger, ICON_LC_TRIANGLE_ALERT);
+            Ui::NextCell(); Ui::Stat("Players", "24", "+3", Tone::Success);
+            Ui::NextCell(); Ui::Stat("Frame time", "6.9 ms", "-0.4", Tone::Success);
             Ui::EndGrid();
         }
-        Ui::BeginCard("chart", "Throughput", ICON_LC_CHART_LINE);
+        Ui::Section("Throughput");
         Ui::LineChart("##series", series, 12, 0.0f, std::nullopt, std::nullopt, "%.0f");
-        Ui::EndCard();
-        Ui::BeginCard("progress");
+        Ui::Section("Progress");
         Ui::Progress(0.62f, "Download");
         Ui::Progress(0.25f, "Upload", Tone::Warning);
-        Ui::Spinner();
-        Ui::EndCard();
-    }, nullptr, "Main").Badge = "3";
+    }, "Ui::LineChart with a hover readout.");
+    charts.Badge = true;
 
-    overlay.menu.AddPage("Settings", ICON_LC_SETTINGS, [&] {
-        Ui::BeginCard("about", "About", ICON_LC_INFO);
-        Ui::Hint("BlazeImGui C++ demo. The theme switch is at the bottom of the sidebar.");
-        Ui::EndCard();
-    }, nullptr, "App");
+    MenuPage& settings = overlay.menu.AddPage("Settings", ICON_LC_SETTINGS, "Menu");
+    settings.AddTab("General", [&] {
+        Ui::Keybind("Menu key", &key, "The key that shows and hides this menu.");
+        Ui::Row("Theme");
+        if (Ui::Segmented("##theme", &theme, themes))
+            Theme::Set(theme == 1 ? ThemeMode::Dark : ThemeMode::Light);
+        ImGui::Dummy(ImVec2(0.0f, 8.0f));
+        if (Ui::Button("Save config", ButtonKind::Secondary, ImVec2(Ui::ControlWidth(), 0.0f)))
+            saved = true;
+        ImGui::Spacing();
+        if (Ui::Button("Close menu", ButtonKind::Secondary, ImVec2(Ui::ControlWidth(), 0.0f)))
+            overlay.menu.RequestClose();
+    }, "Theme, hotkeys and the config file.");
+    settings.PinBottom = true;
+    settings.Status = [&] {
+        Ui::Caption("Config");
+        Ui::Readout("Menu key", Input::KeyName(key).c_str());
+        Ui::Readout("File", "blaze.ini");
+        Ui::Readout("Changes", saved ? "saved" : "not saved", saved ? Tone::Success : Tone::Warning);
+    };
 
-    overlay.menu.SidebarFooter = [] { Ui::Text(ICON_LC_CIRCLE " Connected", Tone::Success); };
+    overlay.menu.Status = [&] {
+        char fps[32], range[48];
+        snprintf(fps, sizeof(fps), "%.0f fps", ImGui::GetIO().Framerate);
+        snprintf(range, sizeof(range), "%.0f yd  (FOV %d)", distance, fov);
+        Ui::Caption("Session");
+        Ui::Readout("Overlay", "running", Tone::Success);
+        Ui::Readout("Frame rate", fps);
+        Ui::Readout("Visuals", esp ? "drawing" : "off", esp ? Tone::Success : Tone::Neutral);
+        Ui::Readout("Distance", range);
+        Ui::Readout("Theme", Theme::IsDark() ? "dark" : "light");
+    };
+
     if (startPage)
         overlay.menu.Select(startPage);
     overlay.Setup();
@@ -247,7 +278,7 @@ int main(int argc, char** argv)
         overlay.Render();
         ImGui::Render();
 
-        const ImVec4 clear = Theme::IsDark() ? ImVec4(0.03f, 0.03f, 0.04f, 1) : ImVec4(0.82f, 0.84f, 0.88f, 1);
+        const ImVec4 clear = Palette::Hex("#17121D");
         const float clearColor[4] = { clear.x, clear.y, clear.z, clear.w };
         g_context->OMSetRenderTargets(1, &g_target, nullptr);
         g_context->ClearRenderTargetView(g_target, clearColor);

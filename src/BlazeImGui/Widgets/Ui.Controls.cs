@@ -11,9 +11,10 @@ public enum ButtonKind { Secondary, Primary, Ghost, Danger }
 public enum Tone { Neutral, Accent, Success, Warning, Danger }
 
 /// <summary>
-/// Themed, animated widgets. Every labeled control follows the same "settings row" layout: the label on the
-/// left, the control right-aligned, an optional description underneath. Labels follow ImGui rules: text after
-/// "##" is hidden but keeps the ID unique ("Enabled##esp"). All widgets return true on the frame the value changes.
+/// Themed, animated widgets. Labeled controls stack: the label on its own line, the control under it at
+/// <see cref="ControlWidth"/>. A description is shown under ABOUT in the menu's status column while the control is
+/// hovered (or under the control when the menu has no status column). Labels follow ImGui rules: text after "##"
+/// is hidden but keeps the ID unique ("Enabled##esp"). All widgets return true on the frame the value changes.
 /// Plain ImGui widgets (Combo, InputText, Tables, Plot*, TreeNode, TabBar...) are themed too and can be mixed freely.
 /// </summary>
 public static partial class Ui
@@ -24,6 +25,12 @@ public static partial class Ui
     /// <summary>True while a <see cref="Keybind"/> waits for a key; the overlay ignores its hotkeys meanwhile.</summary>
     public static bool IsCapturingKey => _capturingKey != 0;
 
+    /// <summary>The text under ABOUT in the status column: the last hovered control's description, or the tab's.</summary>
+    public static string? CurrentAbout { get; set; }
+
+    /// <summary>Draws descriptions under their controls instead of under ABOUT (set by the menu each frame).</summary>
+    public static bool InlineDescriptions { get; set; }
+
     private static uint _capturingKey;
     private static float S(float value) => value * Scale;
     private static Palette P => Theme.Colors;
@@ -31,83 +38,69 @@ public static partial class Ui
 
     // ---------------------------------------------------------------- toggles & checkboxes
 
-    /// <summary>A full-width row with a label and an animated switch. The whole row is clickable.</summary>
+    /// <summary>A checkbox row: the box and its label, the whole row clickable. The settings-style boolean.</summary>
     public static bool Toggle(string label, ref bool value, string? description = null)
     {
         ImGui.PushID(label);
-        var text = Visible(label);
         var width = ImGui.GetContentRegionAvail().X;
+        var height = ImGui.GetFrameHeight();
         var start = ImGui.GetCursorScreenPos();
-        var lineHeight = ImGui.GetTextLineHeight();
-        var descriptionHeight = description is null ? 0 : SmallLineHeight() + S(2);
-        var height = MathF.Max(ImGui.GetFrameHeight(), lineHeight + descriptionHeight + S(6));
-
         var changed = ImGui.InvisibleButton("##row", new Vector2(width, height));
         if (changed) value = !value;
         var hovered = ImGui.IsItemHovered();
         if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-        var on = Anim.Toggle(ImGui.GetID("##on"), value, 16f);
-        var hover = Anim.Toggle(ImGui.GetID("##hover"), hovered, 18f);
-
-        var draw = ImGui.GetWindowDrawList();
-        var size = new Vector2(S(34), S(20));
-        var track = new Vector2(start.X + width - size.X, start.Y + (height - size.Y) * .5f);
-        var off = Anim.Lerp(P.Field, P.FieldActive, hover);
-        var onColor = Anim.Lerp(P.Accent, P.AccentHover, hover);
-        draw.AddRectFilled(track, track + size, Col(Anim.Lerp(off, onColor, on)), size.Y * .5f);
-        var radius = size.Y * .5f - S(3);
-        var knob = new Vector2(Anim.Lerp(track.X + S(3) + radius, track.X + size.X - S(3) - radius, on), track.Y + size.Y * .5f);
-        draw.AddCircleFilled(knob + new Vector2(0, S(.75f)), radius + S(.5f), Col(new Vector4(0, 0, 0, Theme.IsDark ? .35f : .18f)));
-        draw.AddCircleFilled(knob, radius, Col(P.Knob));
-
-        var textY = start.Y + (height - lineHeight - descriptionHeight) * .5f;
-        draw.AddText(new Vector2(start.X, textY), Col(P.Text), text);
-        if (description is not null)
-            draw.AddText(Fonts.Small, Fonts.Small.FontSize, new Vector2(start.X, textY + lineHeight + S(2)), Col(P.TextMuted), description);
+        DrawCheck(start, height, Visible(label), value, hovered);
         ImGui.PopID();
+        About(description);
+        Gap();
         return changed;
     }
 
-    /// <summary>A compact checkbox with an animated fill, for dense lists. Use <see cref="Toggle"/> for settings rows.</summary>
+    /// <summary>A compact checkbox sized to its label, for several on one line (<c>ImGui.SameLine()</c> between).</summary>
     public static bool Checkbox(string label, ref bool value)
     {
         ImGui.PushID(label);
         var text = Visible(label);
-        var box = ImGui.GetFrameHeight() - S(8);
-        var start = ImGui.GetCursorScreenPos();
-        var textSize = ImGui.CalcTextSize(text);
         var height = ImGui.GetFrameHeight();
-        var width = box + (text.Length > 0 ? ImGui.GetStyle().ItemInnerSpacing.X + textSize.X : 0);
+        var width = CheckSize() + (text.Length > 0 ? S(10) + ImGui.CalcTextSize(text).X : 0);
+        var start = ImGui.GetCursorScreenPos();
         var changed = ImGui.InvisibleButton("##box", new Vector2(width, height));
         if (changed) value = !value;
         var hovered = ImGui.IsItemHovered();
-        var on = Anim.Toggle(ImGui.GetID("##on"), value, 20f);
-        var hover = Anim.Toggle(ImGui.GetID("##hover"), hovered, 18f);
-
-        var draw = ImGui.GetWindowDrawList();
-        var min = new Vector2(start.X, start.Y + (height - box) * .5f);
-        var rest = Anim.Lerp(P.Field, P.FieldHover, hover);
-        draw.AddRectFilled(min, min + new Vector2(box), Col(Anim.Lerp(rest, P.Accent, on)), S(5));
-        if (on > .01f)
-        {
-            // A drawn check that grows in with the fill.
-            var a = min + new Vector2(box * .24f, box * .52f);
-            var b = min + new Vector2(box * .42f, box * .70f);
-            var c = min + new Vector2(box * .76f, box * .32f);
-            var t = Anim.EaseOutCubic(on);
-            var mid = Anim.Lerp(a, b, MathF.Min(1, t * 2));
-            draw.AddLine(a, mid, Col(P.OnAccent, on), S(1.8f));
-            if (t > .5f) draw.AddLine(b, Anim.Lerp(b, c, (t - .5f) * 2), Col(P.OnAccent, on), S(1.8f));
-        }
-        if (text.Length > 0)
-            draw.AddText(new Vector2(min.X + box + ImGui.GetStyle().ItemInnerSpacing.X, start.Y + (height - textSize.Y) * .5f), Col(P.Text), text);
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+        DrawCheck(start, height, text, value, hovered);
         ImGui.PopID();
         return changed;
     }
 
+    private static float CheckSize() => MathF.Round(S(14));
+
+    // A square box with a hairline border; when on, a smaller ink square grows in its middle.
+    private static void DrawCheck(Vector2 start, float height, string text, bool value, bool hovered)
+    {
+        var on = Anim.Toggle(ImGui.GetID("##on"), value, 20f);
+        var hover = Anim.Toggle(ImGui.GetID("##hover"), hovered, 18f);
+        var draw = ImGui.GetWindowDrawList();
+        var box = CheckSize();
+        var min = new Vector2(start.X, MathF.Round(start.Y + (height - box) * .5f));
+        draw.AddRectFilled(min, min + new Vector2(box), Col(Anim.Lerp(P.Surface, P.Elevated, hover)), S(3));
+        draw.AddRect(min, min + new Vector2(box), Col(Anim.Lerp(P.Border, P.TextFaint, hover * .6f)), S(3));
+        if (on > .01f)
+        {
+            var inner = Anim.Lerp(S(2), S(8), Anim.EaseOutCubic(on));
+            var center = min + new Vector2(box * .5f);
+            draw.AddRectFilled(center - new Vector2(inner * .5f), center + new Vector2(inner * .5f), Col(P.Accent, on), S(1.5f));
+        }
+        if (text.Length > 0)
+            draw.AddText(new Vector2(min.X + box + S(10), start.Y + (height - ImGui.GetTextLineHeight()) * .5f), Col(P.Text), text);
+    }
+
     // ---------------------------------------------------------------- sliders
 
-    /// <summary>A labeled slider with the value shown on the right. <paramref name="format"/> is a .NET format string.</summary>
+    /// <summary>
+    /// A labeled slider: the label above, the value in a box on the left and the track to its right.
+    /// <paramref name="format"/> is a .NET format string.
+    /// </summary>
     public static bool Slider(string label, ref float value, float min, float max, string format = "0.0", string? description = null)
         => SliderCore(label, ref value, min, max, 0f, format, description);
 
@@ -123,45 +116,73 @@ public static partial class Ui
     private static bool SliderCore(string label, ref float value, float min, float max, float step, string format, string? description)
     {
         ImGui.PushID(label);
-        var width = ImGui.GetContentRegionAvail().X;
-        var x0 = ImGui.GetCursorPosX();
-        ImGui.TextUnformatted(Visible(label));
-        var shown = value.ToString(format, CultureInfo.InvariantCulture);
-        ImGui.SameLine(x0 + width - ImGui.CalcTextSize(shown).X);
-        Text(shown, P.TextMuted);
-
-        var height = S(18);
+        ImGui.BeginGroup();
+        Label(label);
+        var width = ControlWidth;
+        var height = ImGui.GetFrameHeight() + S(4);
         var start = ImGui.GetCursorScreenPos();
-        ImGui.InvisibleButton("##track", new Vector2(width, height));
+        var draw = ImGui.GetWindowDrawList();
+
+        // The value box.
+        var shown = value.ToString(format, CultureInfo.InvariantCulture);
+        var textSize = ImGui.CalcTextSize(shown);
+        var boxWidth = MathF.Max(S(48), textSize.X + S(20));
+        draw.AddRectFilled(start, start + new Vector2(boxWidth, height), Col(P.Surface), S(4));
+        draw.AddRect(start, start + new Vector2(boxWidth, height), Col(P.Border), S(4));
+        draw.AddText(start + (new Vector2(boxWidth, height) - textSize) * .5f, Col(P.Text), shown);
+
+        // The track: a thin rail, an ink fill up to a small grip.
+        var gripSize = new Vector2(S(22), S(15));
+        var gap = S(30);
+        var trackStart = new Vector2(start.X + boxWidth + gap, start.Y);
+        var trackWidth = MathF.Max(S(40), width - boxWidth - gap);
+        ImGui.SetCursorScreenPos(trackStart);
+        ImGui.InvisibleButton("##track", new Vector2(trackWidth, height));
         var active = ImGui.IsItemActive();
         var hovered = ImGui.IsItemHovered();
         if (hovered || active) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-        var radius = S(7);
+        var left = trackStart.X + gripSize.X * .5f;
+        var right = trackStart.X + trackWidth - gripSize.X * .5f;
         var changed = false;
         if (active && max > min)
         {
-            var fraction = Math.Clamp((ImGui.GetIO().MousePos.X - start.X - radius) / (width - radius * 2), 0f, 1f);
+            var fraction = Math.Clamp((ImGui.GetIO().MousePos.X - left) / (right - left), 0f, 1f);
             var next = min + fraction * (max - min);
             if (step > 0) next = MathF.Round(next / step) * step;
             if (next != value) { value = next; changed = true; }
         }
         var target = max > min ? Math.Clamp((value - min) / (max - min), 0f, 1f) : 0f;
         var t = Anim.To(ImGui.GetID("##fill"), target, active ? 40f : 16f);
-        var grow = Anim.Toggle(ImGui.GetID("##grow"), hovered || active, 18f);
+        var hover = Anim.Toggle(ImGui.GetID("##hover"), hovered || active, 18f);
 
-        var draw = ImGui.GetWindowDrawList();
-        var cy = start.Y + height * .5f;
-        var left = start.X + radius;
-        var right = start.X + width - radius;
-        var knobX = Anim.Lerp(left, right, t);
-        var thick = S(4);
-        draw.AddRectFilled(new Vector2(left - thick * .5f, cy - thick * .5f), new Vector2(right + thick * .5f, cy + thick * .5f), Col(P.Field), thick);
-        draw.AddRectFilled(new Vector2(left - thick * .5f, cy - thick * .5f), new Vector2(knobX, cy + thick * .5f), Col(P.Accent), thick);
-        var r = Anim.Lerp(S(6), radius, grow);
-        draw.AddCircleFilled(new Vector2(knobX, cy + S(.75f)), r + S(.5f), Col(new Vector4(0, 0, 0, Theme.IsDark ? .4f : .18f)));
-        draw.AddCircleFilled(new Vector2(knobX, cy), r, Col(P.Knob));
-        Description(description);
+        var cy = MathF.Round(trackStart.Y + height * .5f);
+        var thick = MathF.Round(S(8));
+        var railMin = new Vector2(trackStart.X, cy - thick * .5f);
+        var railMax = new Vector2(trackStart.X + trackWidth, cy + thick * .5f);
+        draw.AddRectFilled(railMin, railMax, Col(P.Surface), thick * .5f);
+        draw.AddRect(railMin, railMax, Col(P.Border), thick * .5f);
+        var gripX = Anim.Lerp(left, right, t);
+        if (gripX - railMin.X > S(2))
+            draw.AddRectFilled(railMin + new Vector2(S(1), S(1)), new Vector2(gripX, railMax.Y - S(1)),
+                Col(Anim.Lerp(P.Accent, P.AccentHover, hover)), thick * .5f);
+        var gripMin = new Vector2(MathF.Round(gripX - gripSize.X * .5f), MathF.Round(cy - gripSize.Y * .5f));
+        draw.AddRectFilled(gripMin + new Vector2(0, S(1)), gripMin + gripSize + new Vector2(0, S(1)),
+            Col(new Vector4(0, 0, 0, Theme.IsDark ? .3f : .08f)), S(4));
+        draw.AddRectFilled(gripMin, gripMin + gripSize, Col(P.Knob), S(4));
+        draw.AddRect(gripMin, gripMin + gripSize, Col(Anim.Lerp(P.Border, P.TextFaint, hover)), S(4));
+        // Three grip lines.
+        for (var i = -1; i <= 1; i++)
+        {
+            var lx = MathF.Round(gripMin.X + gripSize.X * .5f + i * S(3)) + .5f;
+            draw.AddLine(new Vector2(lx, gripMin.Y + S(4.5f)), new Vector2(lx, gripMin.Y + gripSize.Y - S(4.5f)), Col(P.TextMuted), MathF.Max(1, S(1)));
+        }
+
+        ImGui.SetCursorScreenPos(start);
+        ImGui.Dummy(new Vector2(width, height));
+        ImGui.EndGroup();
         ImGui.PopID();
+        About(description);
+        Gap();
         return changed;
     }
 
@@ -169,6 +190,7 @@ public static partial class Ui
 
     /// <summary>
     /// A button with a smooth hover transition. <paramref name="size"/>: 0 = fit text, negative X = fill the row.
+    /// Secondary buttons are outlined, primary ones filled with the accent ink.
     /// Icons can be part of the label: <c>Ui.Button($"{Icons.Save}  Save", ButtonKind.Primary)</c>.
     /// </summary>
     public static bool Button(string label, ButtonKind kind = ButtonKind.Secondary, Vector2 size = default)
@@ -177,7 +199,7 @@ public static partial class Ui
         var textSize = ImGui.CalcTextSize(text);
         var padding = ImGui.GetStyle().FramePadding;
         if (size.X < 0) size.X = ImGui.GetContentRegionAvail().X;
-        if (size.X == 0) size.X = textSize.X + padding.X * 2 + S(6);
+        if (size.X == 0) size.X = textSize.X + padding.X * 2 + S(10);
         if (size.Y == 0) size.Y = ImGui.GetFrameHeight();
 
         var start = ImGui.GetCursorScreenPos();
@@ -188,28 +210,34 @@ public static partial class Ui
         var press = Anim.Toggle(id ^ 0x7E11u, ImGui.IsItemActive(), 28f);
         if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
 
-        Vector4 background, foreground;
+        Vector4 background, foreground, border;
         switch (kind)
         {
             case ButtonKind.Primary:
-                background = Palette.Shade(Anim.Lerp(P.Accent, P.AccentHover, hover), -.08f * press);
+                background = Anim.Lerp(Anim.Lerp(P.Accent, P.AccentHover, hover), P.Accent, press);
                 foreground = P.OnAccent;
+                border = Palette.Alpha(P.Accent, 0);
                 break;
             case ButtonKind.Ghost:
-                background = Anim.Lerp(Palette.Alpha(P.FieldHover, 0), P.FieldHover, MathF.Max(hover, press));
+                background = Anim.Lerp(Palette.Alpha(P.Field, 0), P.Field, MathF.Max(hover, press));
                 foreground = Anim.Lerp(P.TextMuted, P.Text, hover);
+                border = Palette.Alpha(P.Border, 0);
                 break;
             case ButtonKind.Danger:
-                background = Palette.Alpha(P.Danger, Anim.Lerp(.12f, .2f, hover) + .06f * press);
+                background = Palette.Alpha(P.Danger, Anim.Lerp(.06f, .12f, hover) + .06f * press);
                 foreground = P.Danger;
+                border = Palette.Alpha(P.Danger, .35f);
                 break;
             default:
-                background = Anim.Lerp(Anim.Lerp(P.Field, P.FieldHover, hover), P.FieldActive, press);
+                background = Anim.Lerp(Anim.Lerp(P.Surface, P.Elevated, hover), P.Field, press);
                 foreground = P.Text;
+                border = Anim.Lerp(P.Border, P.TextFaint, hover * .7f);
                 break;
         }
         var draw = ImGui.GetWindowDrawList();
-        draw.AddRectFilled(start, start + size, Col(background), ImGui.GetStyle().FrameRounding);
+        var rounding = ImGui.GetStyle().FrameRounding;
+        draw.AddRectFilled(start, start + size, Col(background), rounding);
+        if (border.W > 0) draw.AddRect(start, start + size, Col(border), rounding);
         draw.AddText(start + (size - textSize) * .5f, Col(foreground), text);
         return clicked;
     }
@@ -224,7 +252,7 @@ public static partial class Ui
         var hover = Anim.Toggle(ImGui.GetItemID() ^ 0x1C0Bu, hovered, 18f);
         if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
         var draw = ImGui.GetWindowDrawList();
-        draw.AddRectFilled(start, start + new Vector2(size), Col(P.FieldHover, hover), ImGui.GetStyle().FrameRounding);
+        draw.AddRectFilled(start, start + new Vector2(size), Col(P.Field, hover), ImGui.GetStyle().FrameRounding);
         var iconSize = ImGui.CalcTextSize(icon);
         draw.AddText(start + (new Vector2(size) - iconSize) * .5f, Col(Anim.Lerp(P.TextMuted, P.Text, hover)), icon);
         if (tooltip is not null) Tooltip(tooltip);
@@ -232,28 +260,27 @@ public static partial class Ui
     }
 
     /// <summary>
-    /// A segmented control (pill tabs) with a sliding thumb. <paramref name="width"/> 0 fills the remaining width
-    /// (after <see cref="Row"/> that is exactly the control column).
+    /// A segmented control with a sliding ink thumb. <paramref name="width"/> 0 uses <see cref="ControlWidth"/>.
     /// Returns true when the selection changes.
     /// </summary>
     public static bool Segmented(string id, ref int index, string[] items, float width = 0)
     {
         if (items.Length == 0) return false;
         ImGui.PushID(id);
-        if (width <= 0) width = ImGui.GetContentRegionAvail().X;
+        if (width <= 0) width = ControlWidth;
         var height = ImGui.GetFrameHeight();
         var start = ImGui.GetCursorScreenPos();
         var draw = ImGui.GetWindowDrawList();
         var rounding = ImGui.GetStyle().FrameRounding;
         var inset = S(3);
         var segment = (width - inset * 2) / items.Length;
-        draw.AddRectFilled(start, start + new Vector2(width, height), Col(P.Field), rounding);
+        draw.AddRectFilled(start, start + new Vector2(width, height), Col(P.Surface), rounding);
+        draw.AddRect(start, start + new Vector2(width, height), Col(P.Border), rounding);
 
         var at = Anim.To(ImGui.GetID("##thumb"), index, 16f);
         var thumbMin = new Vector2(start.X + inset + segment * at, start.Y + inset);
         var thumbMax = thumbMin + new Vector2(segment, height - inset * 2);
-        if (!Theme.IsDark) draw.AddRectFilled(thumbMin + new Vector2(0, S(1)), thumbMax + new Vector2(0, S(1)), Col(new Vector4(0, 0, 0, .06f)), rounding - inset * .5f);
-        draw.AddRectFilled(thumbMin, thumbMax, Col(P.Raised), rounding - inset * .5f);
+        draw.AddRectFilled(thumbMin, thumbMax, Col(P.Accent), MathF.Max(0, rounding - inset * .5f));
 
         var changed = false;
         for (var i = 0; i < items.Length; i++)
@@ -265,7 +292,7 @@ public static partial class Ui
             if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
             var selected = Math.Clamp(1f - MathF.Abs(at - i), 0f, 1f);
             var hover = Anim.Toggle(ImGui.GetItemID(), hovered, 18f);
-            var color = Anim.Lerp(Anim.Lerp(P.TextMuted, P.Text, hover * .6f), P.Text, selected);
+            var color = Anim.Lerp(Anim.Lerp(P.TextMuted, P.Text, hover), P.OnAccent, selected);
             var text = Visible(items[i]);
             var size = ImGui.CalcTextSize(text);
             draw.AddText(new Vector2(itemMin.X + (segment - size.X) * .5f, itemMin.Y + (height - size.Y) * .5f), Col(color), text);
@@ -278,101 +305,140 @@ public static partial class Ui
 
     // ---------------------------------------------------------------- labeled native controls
 
-    /// <summary>Width of the right-aligned control in a settings row.</summary>
-    public static float ControlWidth => MathF.Min(S(210), ImGui.GetContentRegionAvail().X * .5f);
+    /// <summary>Width of a control under its label (the column width, up to 280 px).</summary>
+    public static float ControlWidth => MathF.Min(S(280), ImGui.GetContentRegionAvail().X);
 
     /// <summary>
-    /// Draws a settings-row label and leaves the cursor where a control of <paramref name="controlWidth"/>
-    /// should go, with the item width already set. Use it to put any ImGui widget in the standard layout:
-    /// <code>Ui.Row("Mode"); ImGui.Combo("##mode", ref mode, items, items.Length);</code>
+    /// Draws a label on its own line and leaves the cursor where the control goes, with the item width set to
+    /// <paramref name="controlWidth"/> (0 = <see cref="ControlWidth"/>). Use it to put any ImGui widget in the
+    /// standard layout: <code>Ui.Row("Mode"); ImGui.Combo("##mode", ref mode, items, items.Length);</code>
     /// </summary>
     public static void Row(string label, float controlWidth = 0)
     {
         if (controlWidth <= 0) controlWidth = ControlWidth;
-        var x0 = ImGui.GetCursorPosX();
-        var width = ImGui.GetContentRegionAvail().X;
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(Visible(label));
-        ImGui.SameLine(x0 + width - controlWidth);
+        Label(label);
         ImGui.SetNextItemWidth(controlWidth);
     }
 
-    /// <summary>A labeled dropdown.</summary>
+    /// <summary>A labeled dropdown; the list opens just under the field, the selected item highlighted.</summary>
     public static bool Combo(string label, ref int index, string[] items, string? description = null)
     {
+        ImGui.PushID(label);
+        ImGui.BeginGroup();
         Row(label);
-        // The frame is measured before BeginCombo, which moves into the popup window when open.
+        var width = ImGui.CalcItemWidth();
+        var size = new Vector2(width, ImGui.GetFrameHeight());
         var min = ImGui.GetCursorScreenPos();
-        var max = min + new Vector2(ImGui.CalcItemWidth(), ImGui.GetFrameHeight());
+        var max = min + size;
+        if (ImGui.InvisibleButton("##field", size)) ImGui.OpenPopup("##list");
+        var hovered = ImGui.IsItemHovered();
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+        var open = ImGui.IsPopupOpen("##list");
+        var hover = Anim.Toggle(ImGui.GetID("##hover"), hovered || open, 18f);
+
         var draw = ImGui.GetWindowDrawList();
-        var changed = false;
+        var rounding = ImGui.GetStyle().FrameRounding;
+        var padding = ImGui.GetStyle().FramePadding;
+        draw.AddRectFilled(min, max, Col(Anim.Lerp(P.Surface, P.Elevated, hover)), rounding);
+        draw.AddRect(min, max, Col(Anim.Lerp(P.Border, P.TextFaint, hover * .7f)), rounding);
         var preview = index >= 0 && index < items.Length ? items[index] : "";
-        var open = ImGui.BeginCombo("##" + label, preview, ImGuiComboFlags.NoArrowButton);
+        var textY = min.Y + (size.Y - ImGui.GetTextLineHeight()) * .5f;
+        draw.PushClipRect(min, max - new Vector2(padding.X + S(16), 0), true);
+        draw.AddText(new Vector2(min.X + padding.X, textY), Col(P.Text), preview);
+        draw.PopClipRect();
         var chevron = open ? Icons.ChevronUp : Icons.ChevronDown;
-        var size = ImGui.CalcTextSize(chevron);
-        draw.AddText(new Vector2(max.X - size.X - ImGui.GetStyle().FramePadding.X, min.Y + (max.Y - min.Y - size.Y) * .5f), Col(P.TextMuted), chevron);
-        if (open)
+        var chevronSize = ImGui.CalcTextSize(chevron);
+        draw.AddText(new Vector2(max.X - chevronSize.X - padding.X, min.Y + (size.Y - chevronSize.Y) * .5f), Col(P.TextMuted), chevron);
+
+        var changed = false;
+        ImGui.SetNextWindowPos(new Vector2(min.X, max.Y + S(6)));
+        ImGui.SetNextWindowSize(new Vector2(width, 0));
+        ImGui.PushStyleVar(ImGuiStyleVar.PopupRounding, S(5));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(S(6), S(6)));
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(0, S(2)));
+        ImGui.PushStyleVar(ImGuiStyleVar.SelectableTextAlign, new Vector2(0, .5f));
+        if (ImGui.BeginPopup("##list", ImGuiWindowFlags.NoMove))
         {
             for (var i = 0; i < items.Length; i++)
             {
-                if (ImGui.Selectable(items[i], i == index)) { index = i; changed = true; }
-                if (i == index) ImGui.SetItemDefaultFocus();
+                var selected = i == index;
+                ImGui.PushStyleColor(ImGuiCol.Text, selected ? P.Text : P.TextMuted);
+                if (ImGui.Selectable($"  {items[i]}##{i}", selected, ImGuiSelectableFlags.None, new Vector2(0, S(28)))) { index = i; changed = true; }
+                ImGui.PopStyleColor();
+                if (selected && ImGui.IsWindowAppearing()) ImGui.SetItemDefaultFocus();
             }
-            ImGui.EndCombo();
+            ImGui.EndPopup();
         }
-        Description(description);
+        ImGui.PopStyleVar(4);
+        ImGui.EndGroup();
+        ImGui.PopID();
+        About(description);
+        Gap();
         return changed;
     }
 
     /// <summary>A labeled text field with placeholder text.</summary>
     public static bool TextInput(string label, ref string value, string hint = "", uint maxLength = 256, string? description = null)
     {
+        ImGui.BeginGroup();
         Row(label);
         var changed = ImGui.InputTextWithHint("##" + label, hint, ref value, maxLength);
-        Description(description);
+        ImGui.EndGroup();
+        About(description);
+        Gap();
         return changed;
     }
 
     /// <summary>A labeled number field that can be dragged or typed into (double-click).</summary>
     public static bool Number(string label, ref float value, float speed = .1f, float min = 0, float max = 0, string format = "%.2f", string? description = null)
     {
+        ImGui.BeginGroup();
         Row(label);
         var changed = ImGui.DragFloat("##" + label, ref value, speed, min, max, format);
-        Description(description);
+        ImGui.EndGroup();
+        About(description);
+        Gap();
         return changed;
     }
 
     /// <summary>Integer variant of <see cref="Number(string, ref float, float, float, float, string, string?)"/>.</summary>
     public static bool Number(string label, ref int value, float speed = .2f, int min = 0, int max = 0, string? description = null)
     {
+        ImGui.BeginGroup();
         Row(label);
         var changed = ImGui.DragInt("##" + label, ref value, speed, min, max);
-        Description(description);
+        ImGui.EndGroup();
+        About(description);
+        Gap();
         return changed;
     }
 
-    /// <summary>A labeled color swatch that opens a picker.</summary>
+    /// <summary>A color swatch with its label beside it; clicking the swatch opens a picker.</summary>
     public static bool Color(string label, ref Vector4 color, bool alpha = true, string? description = null)
     {
         var swatch = ImGui.GetFrameHeight();
-        Row(label, swatch * 1.6f);
+        ImGui.BeginGroup();
         var flags = ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.AlphaPreviewHalf;
         if (alpha) flags |= ImGuiColorEditFlags.AlphaBar; else flags |= ImGuiColorEditFlags.NoAlpha;
         ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(swatch * .8f - S(1), ImGui.GetStyle().FramePadding.Y));
         var changed = ImGui.ColorEdit4("##" + label, ref color, flags);
         ImGui.PopStyleVar();
-        Description(description);
+        ImGui.SameLine(0, S(12));
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(Visible(label));
+        ImGui.EndGroup();
+        About(description);
+        Gap();
         return changed;
     }
 
     /// <summary>
-    /// A labeled key picker. Click it, then press any key or mouse button. Escape cancels, Backspace clears.
-    /// <paramref name="key"/> is a Windows virtual-key code (see <see cref="VirtualKey"/>); 0 means none.
+    /// A key picker drawn as an outlined button reading "Label: Key". Click it, then press any key or mouse button.
+    /// Escape cancels, Backspace clears. <paramref name="key"/> is a Windows virtual-key code (see
+    /// <see cref="VirtualKey"/>); 0 means none.
     /// </summary>
     public static bool Keybind(string label, ref int key, string? description = null)
     {
-        var width = ControlWidth;
-        Row(label, width);
         var id = ImGui.GetID(label);
         var waiting = _capturingKey == id;
         var changed = false;
@@ -383,10 +449,11 @@ public static partial class Ui
             else if (pressed == (int)VirtualKey.Back) { key = 0; changed = true; _capturingKey = 0; }
             else if (pressed != 0) { key = pressed; changed = true; _capturingKey = 0; }
         }
-        var text = waiting ? "Press a key…" : Input.KeyName(key);
-        if (Button($"{Icons.Keyboard}  {text}##{label}", waiting ? ButtonKind.Primary : ButtonKind.Secondary, new Vector2(width, 0)) && !waiting)
+        var text = waiting ? "press a key…" : Input.KeyName(key);
+        if (Button($"{Visible(label)}: {text}##{label}", waiting ? ButtonKind.Primary : ButtonKind.Secondary, new Vector2(ControlWidth, 0)) && !waiting)
             _capturingKey = id;
-        Description(description);
+        About(description);
+        Gap();
         return changed;
     }
 
@@ -475,24 +542,34 @@ public static partial class Ui
         _ => P.TextMuted,
     };
 
-    private static void Description(string? description)
+    /// <summary>
+    /// Attaches a description to the previous item (or group): it shows under ABOUT in the status column while the
+    /// item is hovered, or right under it when the menu has no status column.
+    /// </summary>
+    public static void About(string? description)
     {
         if (description is null) return;
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem)) CurrentAbout = description;
+        if (!InlineDescriptions) return;
         ImGui.PushFont(Fonts.Small);
         ImGui.PushStyleColor(ImGuiCol.Text, P.TextMuted);
-        ImGui.SetCursorPosY(ImGui.GetCursorPosY() - S(4));
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() - S(3));
         TextWrapped(description);
         ImGui.PopStyleColor();
         ImGui.PopFont();
     }
 
-    private static float SmallLineHeight()
+    // A control's label on its own line, a little closer to the control than to the row above.
+    private static void Label(string label)
     {
-        ImGui.PushFont(Fonts.Small);
-        var height = ImGui.GetTextLineHeight();
-        ImGui.PopFont();
-        return height;
+        var text = Visible(label);
+        if (text.Length == 0) return;
+        ImGui.TextUnformatted(text);
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() - S(1));
     }
+
+    // Extra room after a labeled control, so rows read as separate groups.
+    private static void Gap() => ImGui.Dummy(new Vector2(0, S(8)));
 
     /// <summary>The visible part of an ImGui label (text before "##").</summary>
     public static string Visible(string label)

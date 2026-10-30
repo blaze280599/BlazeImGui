@@ -7,7 +7,8 @@
   exercises every widget. Build with `dotnet build BlazeImGui.sln`.
 * Widgets read colors only from `Theme.Colors` tokens and pack them with `Theme.U32` (so theme switches and
   fades apply); animated state uses `Anim` keyed by ImGui IDs. Keep new widgets to that pattern and to the
-  label-left / control-right row layout (`Ui.Row`).
+  label-above layout (`Ui.Row`: label on its own line, control at `Ui.ControlWidth` under it); descriptions go
+  through `Ui.About` so they show under ABOUT in the status column.
 * Never pass dynamic strings to `ImGui.Text`/`TextColored`/`TextWrapped` (printf formats); use
   `ImGui.TextUnformatted`, `Ui.Text` or `Ui.TextWrapped`.
 * Visual check: `dotnet run --project samples/BlazeImGui.Demo -- --backdrop --page "Controls"` (add `--theme light`).

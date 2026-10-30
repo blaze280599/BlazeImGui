@@ -13,15 +13,15 @@ public static class Theme
 {
     private static Palette _dark = Palette.DefaultDark;
     private static Palette _light = Palette.DefaultLight;
-    private static Palette _from = _dark;
+    private static Palette _from = _light;
     private static float _progress = 1f;
     private const float TransitionSeconds = .32f;
 
     /// <summary>The selected mode (the target of any running transition).</summary>
-    public static ThemeMode Mode { get; private set; } = ThemeMode.Dark;
+    public static ThemeMode Mode { get; private set; } = ThemeMode.Light;
 
     /// <summary>Current colors. Read every frame; do not cache across frames during a transition.</summary>
-    public static Palette Colors { get; private set; } = _dark;
+    public static Palette Colors { get; private set; } = _light;
 
     /// <summary>Raised after the mode changes (e.g. to save the user's choice).</summary>
     public static event Action<ThemeMode>? Changed;
@@ -29,7 +29,7 @@ public static class Theme
     public static bool IsDark => Mode == ThemeMode.Dark;
 
     /// <summary>Corner radii shared by every widget, after UI scale.</summary>
-    public static float Rounding { get; private set; } = 8f;
+    public static float Rounding { get; private set; } = 4f;
 
     /// <summary>Switches theme. With <paramref name="animate"/> the colors cross-fade.</summary>
     public static void Set(ThemeMode mode, bool animate = true)
@@ -82,27 +82,27 @@ public static class Theme
     public static void ApplyStyle(float scale = 1f)
     {
         var style = ImGui.GetStyle();
-        style.WindowRounding = 12;
-        style.ChildRounding = 10;
-        style.FrameRounding = 7;
-        style.PopupRounding = 9;
-        style.GrabRounding = 7;
-        style.TabRounding = 7;
+        style.WindowRounding = 8;
+        style.ChildRounding = 6;
+        style.FrameRounding = 4;
+        style.PopupRounding = 5;
+        style.GrabRounding = 3;
+        style.TabRounding = 4;
         style.ScrollbarRounding = 9;
         style.WindowBorderSize = 1;
         style.ChildBorderSize = 1;
         style.PopupBorderSize = 1;
-        style.FrameBorderSize = 0;
+        style.FrameBorderSize = 1;
         style.TabBorderSize = 0;
         style.TabBarBorderSize = 1;
         style.TabBarOverlineSize = 2;
         style.WindowPadding = new(16, 14);
-        style.FramePadding = new(10, 6);
+        style.FramePadding = new(10, 8);
         style.ItemSpacing = new(10, 8);
         style.ItemInnerSpacing = new(8, 6);
         style.CellPadding = new(10, 6);
         style.IndentSpacing = 18;
-        style.ScrollbarSize = 10;
+        style.ScrollbarSize = 6;
         style.GrabMinSize = 10;
         style.WindowMinSize = new(160, 80);
         style.SeparatorTextBorderSize = 1;
@@ -140,9 +140,9 @@ public static class Theme
         c[(int)ImGuiCol.PopupBg] = p.Elevated;
         c[(int)ImGuiCol.Border] = p.Border;
         c[(int)ImGuiCol.BorderShadow] = none;
-        c[(int)ImGuiCol.FrameBg] = p.Field;
-        c[(int)ImGuiCol.FrameBgHovered] = p.FieldHover;
-        c[(int)ImGuiCol.FrameBgActive] = p.FieldActive;
+        c[(int)ImGuiCol.FrameBg] = p.Surface;
+        c[(int)ImGuiCol.FrameBgHovered] = p.Elevated;
+        c[(int)ImGuiCol.FrameBgActive] = p.Elevated;
         c[(int)ImGuiCol.TitleBg] = p.Background;
         c[(int)ImGuiCol.TitleBgActive] = p.Background;
         c[(int)ImGuiCol.TitleBgCollapsed] = p.Background;
@@ -157,9 +157,9 @@ public static class Theme
         c[(int)ImGuiCol.Button] = p.Field;
         c[(int)ImGuiCol.ButtonHovered] = p.FieldHover;
         c[(int)ImGuiCol.ButtonActive] = p.FieldActive;
-        c[(int)ImGuiCol.Header] = A(p.Accent, .14f);
-        c[(int)ImGuiCol.HeaderHovered] = p.FieldHover;
-        c[(int)ImGuiCol.HeaderActive] = A(p.Accent, .22f);
+        c[(int)ImGuiCol.Header] = p.Field;
+        c[(int)ImGuiCol.HeaderHovered] = A(p.Field, .7f);
+        c[(int)ImGuiCol.HeaderActive] = p.FieldHover;
         c[(int)ImGuiCol.Separator] = p.Border;
         c[(int)ImGuiCol.SeparatorHovered] = A(p.Accent, .6f);
         c[(int)ImGuiCol.SeparatorActive] = p.Accent;

@@ -28,14 +28,38 @@ public static partial class Ui
         ImGui.PopTextWrapPos();
     }
 
-    /// <summary>A quiet section label that groups the rows below it.</summary>
+    /// <summary>A quiet uppercase label ("AIM ASSIST", "ABOUT") that heads the rows below it.</summary>
+    public static void Caption(string text)
+    {
+        ImGui.PushFont(Fonts.Small);
+        Text(text.ToUpperInvariant(), P.TextFaint);
+        ImGui.PopFont();
+        ImGui.Dummy(new Vector2(0, S(4)));
+    }
+
+    /// <summary>A caption that groups the rows below it, with room above when it follows other content.</summary>
     public static void Section(string title)
     {
         if (ImGui.GetCursorPosY() > ImGui.GetStyle().WindowPadding.Y + 1) ImGui.Dummy(new Vector2(0, S(6)));
-        ImGui.PushFont(Fonts.SmallSemiBold);
-        Text(title, P.TextMuted);
-        ImGui.PopFont();
-        ImGui.Dummy(new Vector2(0, S(2)));
+        Caption(title);
+    }
+
+    /// <summary>Label column of <see cref="Readout"/>, as a fraction of the row (at least 110 px).</summary>
+    public static float ReadoutSplit { get; set; } = .42f;
+
+    /// <summary>
+    /// A status line: a muted label and its value in a column to the right. <paramref name="tone"/> colors the value
+    /// (Neutral is plain text): <c>Ui.Readout("Cursor", "hooked", Tone.Success)</c>.
+    /// </summary>
+    public static void Readout(string label, string value, Tone tone = Tone.Neutral)
+    {
+        var x0 = ImGui.GetCursorPosX();
+        var split = MathF.Max(S(110), ImGui.GetContentRegionAvail().X * ReadoutSplit);
+        // A little more air than plain text lines (added above, so nothing extends past the last row).
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + S(3));
+        Text(label, P.TextMuted);
+        ImGui.SameLine(x0 + split);
+        Text(value, tone == Tone.Neutral ? P.Text : ToneColor(tone));
     }
 
     /// <summary>
@@ -46,15 +70,15 @@ public static partial class Ui
     {
         ImGui.PushStyleColor(ImGuiCol.ChildBg, P.Surface);
         ImGui.PushStyleColor(ImGuiCol.Border, P.Border);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(S(16), S(14)));
-        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, S(10));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(S(14), S(12)));
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, S(6));
         ImGui.BeginChild(id, new Vector2(width, 0),
             ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding,
             ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         ImGui.PopStyleVar(2);
         ImGui.PopStyleColor(2);
         if (title is null) return;
-        ImGui.PushFont(Fonts.SemiBold);
+        ImGui.PushFont(Fonts.Medium);
         if (icon is not null)
         {
             Text(icon, P.TextMuted);
@@ -152,8 +176,8 @@ public static partial class Ui
         var height = S(78);
         var start = ImGui.GetCursorScreenPos();
         var draw = ImGui.GetWindowDrawList();
-        draw.AddRectFilled(start, start + new Vector2(width, height), Col(P.Surface), S(10));
-        draw.AddRect(start, start + new Vector2(width, height), Col(P.Border), S(10));
+        draw.AddRectFilled(start, start + new Vector2(width, height), Col(P.Surface), S(6));
+        draw.AddRect(start, start + new Vector2(width, height), Col(P.Border), S(6));
         var pad = new Vector2(S(14), S(12));
         var labelText = icon is null ? label : $"{icon}  {label}";
         draw.AddText(Fonts.Small, Fonts.Small.FontSize, start + pad, Col(P.TextMuted), labelText);

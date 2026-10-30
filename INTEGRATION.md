@@ -18,11 +18,13 @@ ImGui.NET — it is themed automatically.
 * `BlazeOverlay` — an abstract base class over `ClickableTransparentOverlay.Overlay`. It handles fonts,
   theme, hotkeys (Insert = show/hide menu, End = exit), menu fade in/out, hiding from the taskbar,
   covering the screen or following a game window, and toast notifications.
-* `Menu` — a sidebar window: brand, grouped pages with icons, gliding selection, page fade/slide
-  transitions, a header with the page title, a close button, and a Light/Dark switch.
+* `Menu` — a four-column window: an icon rail (brand mark, one icon per page, settings pinned at the bottom),
+  the page's title and tabs (brand name and version at the bottom), the selected tab's controls, and a status
+  column with live readouts plus an ABOUT hint for the hovered control. Selection glides, content fades in.
 * `Ui` — animated, themed widgets (toggles, sliders, buttons, segmented control, combo, inputs, color
   pickers, keybinds, cards, sections, grids, badges, stats, progress, spinner, tooltips, line chart).
-* `Theme` — dark + light palettes with an animated cross-fade and a configurable accent color.
+* `Theme` — light (default) + dark palettes with an animated cross-fade; the accent is an ink color
+  (near-black / near-white) and a pink `Brand` dot marks the logo.
 * `Fonts` — Inter (Regular/Medium/SemiBold, plus Bold on request) with the Lucide icon font merged into every size.
 * `Icons` — 1,544 Lucide icon constants (`Icons.Settings`, `Icons.Eye`, …).
 * `Notify` — toast notifications, callable from any thread.
@@ -112,35 +114,46 @@ public sealed class MyOverlay : BlazeOverlay
 
     public MyOverlay() : base(new OverlayOptions
     {
-        Title = "My Tool",          // brand name in the sidebar
-        Subtitle = "v1.0.0",        // optional small line under it
-        Logo = Icons.Crosshair,     // any Icons.* constant
+        Title = "mytool",           // brand name under the tabs; its first letter is the rail's brand mark
+        Subtitle = "game",          // optional small muted word after it
+        Version = "v1.0.0",         // optional version after that
     })
     {
-        Menu.AddPage("Visuals", Icons.Eye, DrawVisuals, "What is drawn in the world", group: "Main");
-        Menu.AddPage("Settings", Icons.Settings, DrawSettings, group: "App");
+        // A page is one rail icon with its own tabs. The caption is the quiet uppercase line under its title.
+        var visuals = Menu.AddPage("Visuals", Icons.Eye, "Overlay");
+        visuals.AddTab("General", DrawVisuals, "Shown under ABOUT until a control with a description is hovered.");
+        visuals.AddTab("Colors", DrawColors);
+
+        var settings = Menu.AddPage("Settings", Icons.Settings, "Menu");
+        settings.AddTab("General", DrawSettings);
+        settings.PinBottom = true;            // the gear sits at the bottom of the rail
+
+        Menu.Status = DrawStatus;             // the status column (a page can override it with page.Status)
     }
 
     private void DrawVisuals()
     {
-        Ui.Section("General");
-        Ui.BeginCard("general");
-        Ui.Toggle("Enable visuals", ref _esp, "Draw players and objects");
+        // Descriptions appear under ABOUT in the status column while the control is hovered.
+        Ui.Toggle("Enable visuals", ref _esp, "Draw players and objects in the world.");
         ImGui.BeginDisabled(!_esp);
-        Ui.Toggle("Names", ref _names);
-        Ui.Slider("Max distance", ref _distance, 10, 500, "0 'yd'");
+        Ui.Toggle("Names", ref _names, "A name tag above each player.");
+        Ui.Slider("Max distance", ref _distance, 10, 500, "0", "Players further away are not drawn.");
         Ui.Combo("Mode", ref _mode, ["Nearest", "Lowest health"]);
-        Ui.Color("Enemy color", ref _enemyColor);
         ImGui.EndDisabled();
-        Ui.EndCard();
     }
+
+    private void DrawColors() => Ui.Color("Enemy", ref _enemyColor);
 
     private void DrawSettings()
     {
-        Ui.Section("About");
-        Ui.BeginCard("about");
-        Ui.Hint("My Tool — press Insert to hide this menu, End to exit.");
-        Ui.EndCard();
+        if (Ui.Button("Close menu", ButtonKind.Secondary, new Vector2(Ui.ControlWidth, 0))) Menu.RequestClose();
+    }
+
+    private void DrawStatus()
+    {
+        Ui.Caption("Visuals");
+        Ui.Readout("State", _esp ? "drawing" : "off", _esp ? Tone.Success : Tone.Neutral);
+        Ui.Readout("Distance", $"{_distance:0} yd");
     }
 
     // Drawn every frame, also while the menu is hidden. Coordinates are overlay pixels.
@@ -186,16 +199,17 @@ The project's `OutputType` should be `WinExe` (no console window) — wrap `Run(
 
 | Property | Default | Notes |
 |---|---|---|
-| `Title` / `Subtitle` / `Logo` | "Blaze Overlay" / null / `Icons.Flame` | Sidebar brand |
+| `Title` / `Subtitle` / `Version` | "Blaze Overlay" / null / null | Brand line under the tabs: `mytool game v1.0.0` |
+| `Logo` | null (first letter of `Title`) | Rail brand mark, drawn bold with the `Brand` dot; an `Icons.*` constant works too |
 | `MenuKey` | `(int)VirtualKey.Insert` | Virtual-key code |
 | `ExitKey` | `(int)VirtualKey.End` | `0` disables |
 | `HotkeyGate` | null | `Func<bool>`; when hotkeys may fire. Default: always, or only while the `Follow` target/overlay is focused |
 | `StartVisible` | true | |
-| `Theme` | `ThemeMode.Dark` | |
-| `Accent` | null (indigo `#6D8CFF`) | `Palette.Hex("#22C55E")` |
+| `Theme` | `ThemeMode.Light` | |
+| `Accent` | null (ink: `#2B2B30` light, `#E7E7EB` dark) | selection, fills, primary buttons: `Palette.Hex("#22C55E")` |
 | `FontSize` | 15 | body px |
 | `UiScale` | 1.0 | scales fonts, spacing, widgets |
-| `MenuSize` | 820×540 | menu is resizable, min 620×400 |
+| `MenuSize` | 1000×600 | menu is resizable, min 860×500 |
 | `Follow` | null (covers primary monitor) | `WindowTarget.FromProcessName("Game")`, `.FromProcessId(pid)`, `.FromTitle("…")`, `.FromHandle(hwnd)` |
 | `ExitWhen` | null | `Func<bool>` checked every frame, e.g. `() => process.HasExited` |
 | `VSync` / `FpsLimit` | true / 144 | FpsLimit applies when VSync is false |
@@ -203,22 +217,42 @@ The project's `OutputType` should be `WinExe` (no console window) — wrap `Run(
 
 Hotkeys never fire while an ImGui text field has focus or a `Ui.Keybind` is waiting for a key.
 
-## 6. Widget reference (`Ui.*`)
+## 6. Menu and widget reference
 
-All labeled controls use one "settings row" layout: label left, control right-aligned, optional
-`description` in small muted text below. Labels follow ImGui ID rules — text after `##` is hidden but
-makes the ID unique (`"Enabled##esp"`, `"Enabled##names"`). Controls return `true` on the frame the value
-changes.
+**Menu** (`Menu.*`, set in the constructor)
+
+| Member | Notes |
+|---|---|
+| `Menu.AddPage(title, icon, caption?)` → `MenuPage` | one rail icon; `caption` is the uppercase line under the page title |
+| `Menu.AddPage(title, icon, draw, caption?)` | shortcut: a page with a single tab of the same title |
+| `page.AddTab(title, draw, about?)` → `MenuTab` | `about` shows under ABOUT until a control with a description is hovered |
+| `page.Status = () => …` | this page's status column; falls back to `Menu.Status` |
+| `page.PinBottom = true` | icon at the bottom of the rail (settings) |
+| `page.Badge = true` | a small brand dot on the rail icon |
+| `page.SelectedTab` / `page.SelectTab("Timing")` | current tab |
+| `Menu.Select("Relax")` / `Menu.Select("Relax/Timing")` / `Menu.Selected = i` | current page (and tab) |
+| `Menu.Status` / `StatusTitle` / `AboutTitle` | default status column, its title ("Status"), the hint caption ("About") |
+| `Menu.ShowStatus = false` | drop the status column; descriptions then show under each control |
+| `Menu.RailWidth` / `NavWidth` / `ContentWidth` | column widths (62 / 200 / 340); the status column takes the rest |
+| `Menu.RequestClose()` / `Menu.CloseRequested` | hide the menu (e.g. a "Close menu" button) |
+
+**Widgets.** Labeled controls stack: the label on its own line, the control under it at `Ui.ControlWidth`
+(the column width, up to 280 px). The optional `description` is shown under ABOUT in the status column while
+the control is hovered. Labels follow ImGui ID rules — text after `##` is hidden but makes the ID unique
+(`"Enabled##esp"`, `"Enabled##names"`). Controls return `true` on the frame the value changes.
 
 **Layout**
 
 | Call | Notes |
 |---|---|
-| `Ui.Section("Title")` | quiet group label |
+| `Ui.Caption("Title")` | quiet uppercase label ("AIM ASSIST"); heads a group of readouts or rows |
+| `Ui.Section("Title")` | a caption with room above it when it follows other content |
+| `Ui.Readout(label, value, Tone = Neutral)` | status line: muted label, value in a column to the right (`Tone.Success` = green) |
+| `Ui.About(description)` | attach an ABOUT description to the previous item or group (any ImGui widget) |
 | `Ui.BeginCard("id", title?, icon?)` … `Ui.EndCard()` | rounded surface that fits its content; **always pair** |
 | `if (Ui.BeginGrid("id", columns)) { Ui.NextCell(); … Ui.EndGrid(); }` | equal columns; `EndGrid` only if `BeginGrid` returned true |
-| `Ui.Row("Label", controlWidth = 0)` | label + positions the cursor/width for **any** ImGui widget: `Ui.Row("Mode"); ImGui.SliderAngle("##a", ref r);` |
-| `Ui.ControlWidth` | default control column width |
+| `Ui.Row("Label", controlWidth = 0)` | label on its own line, then the cursor/width for **any** ImGui widget: `Ui.Row("Mode"); ImGui.SliderAngle("##a", ref r);` |
+| `Ui.ControlWidth` | default control width (column width, up to 280 px) |
 | `Ui.SameLineRight(width)` | put the next item flush right on the current line |
 | `Ui.Divider()` · `Ui.Hint(text)` | hairline · muted wrapped text |
 | `Ui.Text(text, Tone or Vector4)` · `Ui.TextWrapped(text)` | `%`-safe text (see pitfalls) |
@@ -227,19 +261,19 @@ changes.
 
 | Call | Notes |
 |---|---|
-| `Ui.Toggle(label, ref bool, description?)` | animated switch, whole row clickable — preferred for on/off settings |
-| `Ui.Checkbox(label, ref bool)` | compact animated checkbox for dense lists |
-| `Ui.Slider(label, ref float, min, max, format = "0.0", description?)` | .NET format: `"0 'yd'"`, `"0%"` (×100), `"0.00"` |
+| `Ui.Toggle(label, ref bool, description?)` | checkbox row, whole row clickable — preferred for on/off settings |
+| `Ui.Checkbox(label, ref bool)` | compact checkbox sized to its label, for several on one line |
+| `Ui.Slider(label, ref float, min, max, format = "0.0", description?)` | value box + track with grip; .NET format: `"0"`, `"0%"` (×100), `"0.00"` |
 | `Ui.Slider(label, ref int, min, max, format = "0", description?)` | snaps to integers |
-| `Ui.Button(label, ButtonKind = Secondary, size = default)` | kinds: `Primary`, `Secondary`, `Ghost`, `Danger`; `size.X < 0` = full width |
+| `Ui.Button(label, ButtonKind = Secondary, size = default)` | `Secondary` outlined, `Primary` ink-filled, `Ghost`, `Danger`; `size.X < 0` = full width; settings buttons look best at `new Vector2(Ui.ControlWidth, 0)` |
 | `Ui.IconButton(Icons.X, "##id", tooltip?, size = 0)` | square borderless button |
-| `Ui.Segmented("##id", ref int, string[] items, width = 0)` | pill tabs with sliding thumb; width 0 fills (after `Ui.Row` = control column) |
-| `Ui.Combo(label, ref int, string[] items, description?)` | dropdown with chevron |
+| `Ui.Segmented("##id", ref int, string[] items, width = 0)` | segmented control with a sliding ink thumb; width 0 = `Ui.ControlWidth` |
+| `Ui.Combo(label, ref int, string[] items, description?)` | outlined dropdown; the list opens just under it |
 | `Ui.TextInput(label, ref string, hint = "", maxLength = 256, description?)` | text field with placeholder |
 | `Ui.Number(label, ref float, speed, min, max, format = "%.2f", description?)` | drag/double-click to type; `min == max == 0` = unbounded; format is printf-style here |
 | `Ui.Number(label, ref int, speed, min, max, description?)` | |
-| `Ui.Color(label, ref Vector4, alpha = true, description?)` | swatch → picker popup |
-| `Ui.Keybind(label, ref int vk, description?)` | click then press a key/mouse button; Esc cancels, Backspace clears (0) |
+| `Ui.Color(label, ref Vector4, alpha = true, description?)` | swatch with its label beside it → picker popup |
+| `Ui.Keybind(label, ref int vk, description?)` | outlined button reading "Label: Key"; click then press a key/mouse button; Esc cancels, Backspace clears (0) |
 
 **Feedback / display**
 
@@ -265,14 +299,15 @@ shows tables, trees, tabs, list boxes, modals and native plots.
 
 * **Colors:** never hard-code UI colors. Read tokens from `Theme.Colors` every frame (they animate during a
   theme switch): `Background, Sidebar, Surface, Elevated, Field, FieldHover, FieldActive, Raised, Border,
-  Text, TextMuted, TextFaint, Accent, AccentHover, OnAccent, Knob, Success, Warning, Danger`.
+  Text, TextMuted, TextFaint, Accent, AccentHover, OnAccent, Knob, Brand, Success, Warning, Danger`.
 * **Draw lists:** pack with `Theme.U32(color, alpha = 1)` — it also applies the menu/page fade.
   For world drawings that must not fade with the menu, use `ImGui.ColorConvertFloat4ToU32(color)`.
 * `Theme.Set(ThemeMode.Light)` / `Theme.Toggle()` (animated), `Theme.IsDark`, `Theme.Mode`,
   `Theme.Changed += mode => …` (save the choice), `Theme.SetAccent(Palette.Hex("#14B8A6"))`,
   `Theme.Customize(ThemeMode.Dark, p => p.Background = Palette.Hex("#0E0E10"))`.
   Helpers: `Palette.Hex("#RRGGBB[AA]")`, `Palette.Shade(c, ±amount)`, `Palette.Alpha(c, a)`.
-* **Fonts:** `Fonts.Regular` (default), `Medium`, `SemiBold`, `Small`, `SmallSemiBold`, `Heading`, `IconLarge`.
+* **Fonts:** `Fonts.Regular` (default), `Medium`, `SemiBold`, `Small`, `SmallSemiBold`, `Heading`, `Title`
+  (column titles), `Brand` (rail mark), `IconLarge`.
   Switch with `ImGui.PushFont(Fonts.SemiBold); … ImGui.PopFont();`. Draw-list text with a font:
   `draw.AddText(Fonts.SemiBold, Fonts.SemiBold.FontSize, pos, col, text)`. Extra sizes only via
   `OnLoadFonts()` + `Fonts.Add(FontWeight.Regular/Medium/SemiBold/Bold, px)`.
@@ -319,13 +354,19 @@ private int _panicKey = (int)VirtualKey.F10;
 ```
 `Input.IsDown(vk)` = held, `Input.Pressed(vk)` = this frame only, `Input.KeyName(vk)` = display name.
 
-**Page badge / header actions / sidebar footer**
+**Live status per page, a badge dot, opening on a tab**
 
 ```csharp
-Menu.AddPage("Updates", Icons.Download, DrawUpdates).Badge = "3";
-Menu.HeaderActions = () => { if (Ui.IconButton(Icons.RefreshCw, "##reload", "Reload")) Reload(); };
-Menu.SidebarFooter = () => Ui.Text("Connected", Tone.Success);
-Menu.Select("Visuals"); // or Menu.Selected = 0
+var relax = Menu.AddPage("Relax", Icons.Keyboard, "Auto-tap");
+relax.AddTab("Timing", DrawTiming, "How the timing of each tap is chosen.");
+relax.Status = () =>
+{
+    Ui.Caption("Relax");
+    Ui.Readout("State", _active ? "active" : "idle", _active ? Tone.Success : Tone.Neutral);
+    Ui.Readout("Changes", _dirty ? "not saved" : "saved", _dirty ? Tone.Warning : Tone.Success);
+};
+relax.Badge = true;            // brand dot on the rail icon
+Menu.Select("Relax/Timing");   // or Menu.Selected = 0
 ```
 
 **Card with a badge or button on its title line**
@@ -338,7 +379,7 @@ Ui.Badge("Live", Tone.Success);
 Ui.EndCard();
 ```
 
-**Your own window instead of the sidebar menu** — override `DrawMenu()`; the fade alpha is already applied
+**Your own window instead of the built-in menu** — override `DrawMenu()`; the fade alpha is already applied
 and all `Ui.*` widgets and the theme still work:
 
 ```csharp
@@ -367,10 +408,11 @@ protected override void DrawMenu()
 | Insert/Delete polling with `GetAsyncKeyState` | built in (`MenuKey`/`ExitKey`); custom keys with `Input.Pressed` |
 | Window-follow code (`GetClientRect`/`ClientToScreen`) | `OverlayOptions.Follow = WindowTarget.FromProcessId(pid)` |
 | "close when the game exits" checks | `OverlayOptions.ExitWhen` |
-| `Render()` body | split: logic → `OnUpdate()`; world drawings (`GetBackgroundDrawList`) → `DrawOverlay(draw)`; each `BeginTabItem` → a `Menu.AddPage(...)` method |
+| `Render()` body | split: logic → `OnUpdate()`; world drawings (`GetBackgroundDrawList`) → `DrawOverlay(draw)`; each top-level tab → a `Menu.AddPage(...)`, each sub-tab → `page.AddTab(...)` |
 | `ImGui.Begin("…")` main window with tabs | pages; or keep it by overriding `DrawMenu()` |
 | `ImGui.Checkbox` / `SliderFloat` settings | `Ui.Toggle` / `Ui.Slider` (same `ref` fields) |
-| `ImGui.SeparatorText("X")` | `Ui.Section("X")` + `Ui.BeginCard`/`EndCard` |
+| `ImGui.SeparatorText("X")` | `Ui.Section("X")`, or a separate tab |
+| Status / debug text (`ImGui.Text($"Target: {t}")`) | `Ui.Readout("Target", t)` in `page.Status` / `Menu.Status` |
 | `ImGui.TextColored(color, s)` / `ImGui.TextDisabled(s)` | `Ui.Text(s, color)` / `Ui.Text(s, Theme.Colors.TextMuted)` |
 | Status / error lines | `Ui.Text(msg, Tone.Danger)`, `Ui.Badge`, or `Notify.Show` |
 
@@ -403,10 +445,11 @@ Keep the project's data/sampling code unchanged — only the presentation layer 
 
 1. `dotnet build` — no errors, and a fresh clone in an empty folder also builds (section 2, step 6).
 2. Run the app: the menu appears centered and fades in; Insert hides/shows it; End exits.
-3. Click every page: pages fade in, the sidebar pill glides, and widgets respond.
-4. Switch Light/Dark in the sidebar: all colors cross-fade, nothing stays dark-on-dark or light-on-light
+3. Click every rail icon and tab: content fades in, the rail tile and tab marker glide, widgets respond, and
+   hovering a control with a description updates ABOUT in the status column.
+4. Switch Light/Dark (`Theme.Toggle()`, e.g. from a settings page): all colors cross-fade, nothing stays dark-on-dark or light-on-light
    (if a custom draw stays wrong, it is using a hard-coded color instead of `Theme.Colors`).
 5. If `Follow` is set: the overlay sits exactly on the game window and hotkeys only work while it is focused.
 
-To see every widget in action: `dotnet run --project samples\BlazeImGui.Demo` (flags: `--theme light`,
-`--page "Charts"`, `--backdrop` for an opaque background, `--toast` to show sample toasts).
+To see every widget in action: `dotnet run --project samples\BlazeImGui.Demo` (flags: `--theme dark`,
+`--page "Charts"` or `"Controls/Sliders"`, `--backdrop` for an opaque background, `--toast` to show sample toasts).

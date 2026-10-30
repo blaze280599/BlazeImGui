@@ -20,8 +20,12 @@ public static unsafe class Fonts
     public static ImFontPtr Small { get; private set; }
     /// <summary>Small semibold: section labels.</summary>
     public static ImFontPtr SmallSemiBold { get; private set; }
-    /// <summary>Large semibold: page titles.</summary>
+    /// <summary>Large semibold: stat values and big numbers.</summary>
     public static ImFontPtr Heading { get; private set; }
+    /// <summary>Large medium: the column titles of the menu (page, tab and status).</summary>
+    public static ImFontPtr Title { get; private set; }
+    /// <summary>Extra large semibold: the brand mark on the icon rail.</summary>
+    public static ImFontPtr Brand { get; private set; }
     /// <summary>Icons only, large: brand marks and empty states.</summary>
     public static ImFontPtr IconLarge { get; private set; }
 
@@ -53,6 +57,8 @@ public static unsafe class Fonts
         Small = AddText(regular, icons, body - 2);
         SmallSemiBold = AddText(semibold, icons, body - 2);
         Heading = AddText(semibold, icons, MathF.Round(body * 1.34f));
+        Title = AddText(medium, icons, MathF.Round(body * 1.27f));
+        Brand = AddText(semibold, icons, MathF.Round(body * 1.87f));
         IconLarge = AddIcons(icons, MathF.Round(body * 1.4f), merge: false);
         io.NativePtr->FontDefault = Regular.NativePtr;
     }
