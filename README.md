@@ -103,6 +103,7 @@ samples/BlazeImGui.Demo  every widget on one overlay
 cpp/                     C++ port (Dear ImGui 1.92+)
 rust/                    Rust port (dear-imgui-rs)
 tools/pack.ps1           build the NuGet package (-Into copies it to a project feed)
+tools/pack-cpp.ps1       build the C++ package (-Into copies it into a project)
 tools/generate-icons.ps1 refresh the icon font + constants
 tools/generate-cpp.ps1   regenerate the C++ icons + embedded fonts
 tools/generate-rust.ps1  regenerate the Rust icons + copy the fonts

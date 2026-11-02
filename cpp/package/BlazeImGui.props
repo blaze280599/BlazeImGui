@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- BlazeImGui for C++, packaged (built by tools/pack-cpp.ps1). Use from a Visual Studio .vcxproj: add
+       <Import Project="external\blazeimgui\BlazeImGui.props" />
+     after the <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" /> line. blaze_imgui.cpp compiles with the
+     project's own Dear ImGui include path and settings; the fonts link from a prebuilt, data-only library. -->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <BlazeImGuiDir>$(MSBuildThisFileDirectory)</BlazeImGuiDir>
+    <BlazeImGuiArch Condition="'$(Platform)' == 'x64'">x64</BlazeImGuiArch>
+    <BlazeImGuiArch Condition="'$(Platform)' == 'Win32' Or '$(Platform)' == 'x86'">x86</BlazeImGuiArch>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(BlazeImGuiDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(BlazeImGuiDir)lib\$(BlazeImGuiArch)\blaze_fonts.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="$(BlazeImGuiDir)src\blaze_imgui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+</Project>

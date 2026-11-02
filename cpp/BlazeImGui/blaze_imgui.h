@@ -23,6 +23,9 @@
 #include "imgui.h"
 #include "blaze_icons.h"
 
+// Package version (tools/pack-cpp.ps1 names the package after it). Bump it for every release.
+#define BLAZE_IMGUI_VERSION "1.0.0"
+
 namespace Blaze
 {
     enum class ThemeMode { Dark, Light };
