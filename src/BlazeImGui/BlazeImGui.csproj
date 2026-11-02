@@ -10,13 +10,28 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- NuGet package: `tools\pack.ps1` builds it. Bump Version for every release (NuGet caches by version). -->
+    <PackageId>BlazeImGui</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>zack polc</Authors>
+    <Description>Themed, animated Dear ImGui menu for ClickableTransparentOverlay: a four-column menu, light and dark themes, Inter and Lucide icon fonts embedded, toasts and widgets.</Description>
+    <PackageTags>imgui;overlay;ui;theme</PackageTags>
+    <RepositoryUrl>https://github.com/blaze280599/BlazeImGui</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
   <ItemGroup>
-    <!-- Keep these versions in sync with consuming projects (NuGet will warn on a downgrade). -->
-    <PackageReference Include="ClickableTransparentOverlay" Version="11.1.0" />
-    <PackageReference Include="ImGui.NET" Version="1.91.6.1" />
+    <!-- Exact versions ([x]): consumers get these and NuGet errors on a mismatch instead of breaking at runtime. -->
+    <PackageReference Include="ClickableTransparentOverlay" Version="[11.1.0]" />
+    <PackageReference Include="ImGui.NET" Version="[1.91.6.1]" />
   </ItemGroup>
   <ItemGroup>
     <!-- Fonts ship inside the DLL, so consumers copy nothing. -->
     <EmbeddedResource Include="Assets\Fonts\*.ttf" LogicalName="BlazeImGui.Fonts.%(Filename)%(Extension)" />
+    <None Include="Assets\Fonts\*-LICENSE.txt" Pack="true" PackagePath="licenses\" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 </Project>

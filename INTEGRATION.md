@@ -8,8 +8,9 @@ ImGui.NET — it is themed automatically.
 > **Source of this library:** `C:\Users\blazi\Desktop\AI Projects\BlazeImGui` · https://gitlab.com/Blvckberry/BlazeImGui
 > **Library project:** `src\BlazeImGui\BlazeImGui.csproj` · **Working example:** `samples\BlazeImGui.Demo\DemoOverlay.cs`
 >
-> **Rule:** the library is *copied into* each project that uses it (section 2), so every project builds on
-> its own from a plain clone. Never reference this folder from another repository.
+> **Rule:** projects use the **`BlazeImGui` NuGet package** from a local feed committed in their own
+> repository (section 2), so every project builds on its own from a plain clone. Never reference this folder
+> from another repository, and don't copy the library source into it.
 
 ---
 
@@ -40,50 +41,62 @@ Fonts are embedded in `BlazeImGui.dll`; nothing needs copying.
 | ImGui.NET | **1.91.6.1** — must match exactly if the project also references it |
 | ClickableTransparentOverlay | **11.1.0** — must match exactly if the project also references it |
 
-If the target project already has `PackageReference`s to ImGui.NET / ClickableTransparentOverlay at these
-versions, keep or remove them (they flow transitively from BlazeImGui). If they are at **different
-versions**, change them to the versions above (or change both projects together) — mixed versions break
-at runtime.
+The package pins both dependencies to these exact versions, so they flow in transitively and the target
+needs no `PackageReference` of its own for them. If the target already references them at **different
+versions**, restore fails with `NU1605` (package downgrade): change the target's versions to the ones
+above, or remove those references.
 
-## 2. Copy the library into the target project (default)
+## 2. Add the package (default)
 
-**Copy the library source into the target repository and reference the copy.** The target must build from
-a plain `git clone` on any machine, without this BlazeImGui folder existing next to it. Do **not** point a
-`ProjectReference` at a path outside the target repository (absolute paths or `..\..\BlazeImGui\...`):
-it works on this PC only and breaks for every other clone. Do not use a git submodule unless the user asks.
+The library ships as one NuGet package (`BlazeImGui.<version>.nupkg`, ~1.2 MB: the DLL with embedded fonts,
+XML docs for IntelliSense, and the font licenses). The target keeps it in a `packages` folder in its own
+repository, so it builds from a plain `git clone` on any machine with no BlazeImGui folder next to it.
+Do **not** copy `src\BlazeImGui` into the target, point a `ProjectReference` outside the target repository,
+or use a git submodule unless the user asks.
 
-1. **Copy** `src\BlazeImGui` (code + `Assets\Fonts`, which include the font licenses) to a `BlazeImGui`
-   folder at the target repository root, **without** `bin` and `obj`:
+1. **Pack it into the target's feed** from this repository (builds `artifacts\BlazeImGui.<version>.nupkg`,
+   copies it into the folder and removes older BlazeImGui packages there):
 
    ```powershell
-   robocopy "C:\Users\blazi\Desktop\AI Projects\BlazeImGui\src\BlazeImGui" "<target-repo>\BlazeImGui" /E /XD bin obj
+   & "C:\Users\blazi\Desktop\AI Projects\BlazeImGui\tools\pack.ps1" -Into "<target-repo>\packages"
    ```
 
-   (robocopy exit codes 0–7 mean success.) If this folder is not available, get the source from
-   `git clone https://gitlab.com/Blvckberry/BlazeImGui.git` into a temporary folder and copy its
-   `src\BlazeImGui` the same way.
+   If this folder is not available, clone https://github.com/blaze280599/BlazeImGui into a temporary folder
+   and run its `tools\pack.ps1` the same way.
 
-2. **Reference the copy** from the app's `.csproj` with a path *inside* the repository, e.g. for
-   `<target-repo>\MyOverlay\MyOverlay.csproj`:
+2. **Add a `nuget.config`** at the target repository root (next to the `.sln`), or add the `<add …>` line to
+   the one already there. The path is relative to the `nuget.config` file; nuget.org stays available.
+
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <configuration>
+     <packageSources>
+       <add key="local" value="packages" />
+     </packageSources>
+   </configuration>
+   ```
+
+3. **Reference the package** from the app's `.csproj`, using the version the pack script printed:
 
    ```xml
    <ItemGroup>
-     <!-- Menu, theme, fonts and widgets: a copy of the BlazeImGui library kept in this repository. -->
-     <ProjectReference Include="..\BlazeImGui\BlazeImGui.csproj" />
+     <!-- Menu, theme, fonts and widgets. The package is in ..\packages (see nuget.config). -->
+     <PackageReference Include="BlazeImGui" Version="1.0.0" />
    </ItemGroup>
    ```
 
-   If the target has a `.sln`, also run: `dotnet sln <Solution>.sln add BlazeImGui\BlazeImGui.csproj`
+4. **Commit the package.** Many `.gitignore` templates (including Visual Studio's) ignore `*.nupkg` and
+   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.0.0.nupkg`; if it prints a rule, add these
+   lines to the end of the target's `.gitignore`:
 
-3. **Record where the copy came from** in `<target-repo>\BlazeImGui\README.md`: the BlazeImGui commit
-   (`git -C <BlazeImGui folder> log -1 --format=%h`), a link to https://gitlab.com/Blvckberry/BlazeImGui,
-   and that updates are made by copying a newer `src\BlazeImGui` over this folder (fixes made in the copy
-   should also go upstream so the copies don't drift).
+   ```gitignore
+   !packages/
+   !packages/BlazeImGui.*.nupkg
+   ```
 
-4. **Make sure build output is ignored:** the target's `.gitignore` must cover `**/bin/` and `**/obj/`
-   (add them if missing), and `imgui.ini`.
+   The `.gitignore` must also cover `**/bin/`, `**/obj/` and `imgui.ini`.
 
-5. `dotnet build` once to confirm the reference resolves before writing UI code.
+5. `dotnet build` once to confirm the package restores before writing UI code.
 
 6. **Prove it is self-contained** after committing: clone the repository into an empty temporary folder
    and build there — it must succeed with no BlazeImGui folder beside it:
@@ -92,8 +105,13 @@ it works on this PC only and breaks for every other clone. Do not use a git subm
    git clone <target-repo> "$env:TEMP\clone-check"; dotnet build "$env:TEMP\clone-check\<path-to-app>.csproj"
    ```
 
-> Working on BlazeImGui itself (not integrating it)? Then edit `src\BlazeImGui` here, and re-copy it into
-> projects that use it.
+**Updating** a project to a newer BlazeImGui: run the pack script with `-Into` again (it replaces the old
+`.nupkg`), set the new `Version` on the `PackageReference`, build, and commit both.
+
+**Releasing a change to the library:** edit `src\BlazeImGui` here, then **bump `<Version>`** in
+`src\BlazeImGui\BlazeImGui.csproj` (or pass `tools\pack.ps1 -Version 1.1.0`). NuGet caches packages by
+version in `%USERPROFILE%\.nuget\packages`, so re-packing the same version gives projects the old copy.
+Fixes go here and ship as a new version; never patch the library inside a target project.
 
 ## 3. Create the overlay
 
@@ -313,7 +331,7 @@ shows tables, trees, tabs, list boxes, modals and native plots.
   `OnLoadFonts()` + `Fonts.Add(FontWeight.Regular/Medium/SemiBold/Bold, px)`.
 * **Icons:** the constant is the [lucide.dev/icons](https://lucide.dev/icons) name in PascalCase
   (`"chevron-right"` → `Icons.ChevronRight`; names starting with a digit get `_`). Find one with
-  `grep -n "Name" src/BlazeImGui/Icons.g.cs`. Icons work in any string in any font:
+  `grep -n "Name" src/BlazeImGui/Icons.g.cs` in the BlazeImGui repository (or IntelliSense on `Icons.`). Icons work in any string in any font:
   `$"{Icons.Save}  Save"` (two spaces between icon and text look best).
 
 ## 8. Recipes
@@ -444,6 +462,7 @@ Keep the project's data/sampling code unchanged — only the presentation layer 
 ## 11. Verify
 
 1. `dotnet build` — no errors, and a fresh clone in an empty folder also builds (section 2, step 6).
+   `git ls-files packages` lists the `.nupkg`.
 2. Run the app: the menu appears centered and fades in; Insert hides/shows it; End exits.
 3. Click every rail icon and tab: content fades in, the rail tile and tab marker glide, widgets respond, and
    hovering a control with a description updates ABOUT in the status column.

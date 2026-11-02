@@ -28,11 +28,16 @@ A reusable, minimal and modern ImGui menu base for C# transparent overlays
 
 ## Quick start
 
-Copy `src/BlazeImGui` into your repository (without `bin`/`obj`) and reference the copy, so your project
-builds from a plain clone on any machine:
+Pack the library into a `packages` folder in your repository, point a `nuget.config` at it, and reference
+the package. Commit the `.nupkg` so your project builds from a plain clone on any machine
+([INTEGRATION.md](INTEGRATION.md), section 2):
+
+```powershell
+tools\pack.ps1 -Into C:\code\MyTool\packages
+```
 
 ```xml
-<ProjectReference Include="..\BlazeImGui\BlazeImGui.csproj" />
+<PackageReference Include="BlazeImGui" Version="1.0.0" />
 ```
 
 ```csharp
@@ -93,9 +98,11 @@ src/BlazeImGui/
   Core/                  Anim, Input (keys), WindowTarget
   Icons.g.cs             generated Lucide constants
   Assets/Fonts/          Inter + Lucide (embedded)
+  PACKAGE.md             README shipped inside the NuGet package
 samples/BlazeImGui.Demo  every widget on one overlay
 cpp/                     C++ port (Dear ImGui 1.92+)
 rust/                    Rust port (dear-imgui-rs)
+tools/pack.ps1           build the NuGet package (-Into copies it to a project feed)
 tools/generate-icons.ps1 refresh the icon font + constants
 tools/generate-cpp.ps1   regenerate the C++ icons + embedded fonts
 tools/generate-rust.ps1  regenerate the Rust icons + copy the fonts
