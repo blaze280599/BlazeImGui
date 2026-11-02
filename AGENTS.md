@@ -25,4 +25,6 @@
 * **Rust port** (`rust/blaze-imgui`, crate `blaze_imgui` on `dear-imgui-rs` 0.21): same look and widgets; see
   [rust/README.md](rust/README.md). Keep it in step with the C# library too. `src/icons.rs` and `fonts/` come from
   `tools/generate-rust.ps1`. Build with `cargo build --example demo` in `rust/blaze-imgui`; visual check:
-  `cargo run --example demo -- --page "Controls" --screenshot out.bmp` (add `--theme dark`).
+  `cargo run --example demo -- --page "Controls" --screenshot out.bmp` (add `--theme dark`). Projects depend on it
+  by git with a `rust-v<version>` tag (never a copy or a path dependency); for a release bump `version` in its
+  `Cargo.toml`, commit, then tag and push that commit.

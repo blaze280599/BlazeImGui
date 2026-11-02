@@ -19,18 +19,27 @@ SDL3, Bevy, or the Win32/DX11 backend shims of `dear-imgui-sys` for hooks.
 
 ## Add it to a project
 
-1. Copy `rust/blaze-imgui` into the target repository (e.g. `crates/blaze-imgui`), without `target/`. Never
-   reference this folder from another repository.
-2. Add it as a path dependency, and use the same `dear-imgui-rs` version in the app:
+Add it as a **git dependency pinned to a release tag**. Cargo fetches the crate from the public repository, so
+the project holds one line instead of a copy, and `Cargo.lock` records the exact commit. Never copy
+`rust/blaze-imgui` into a project or use a `path` dependency into this folder.
 
-   ```toml
-   [dependencies]
-   blaze-imgui = { path = "crates/blaze-imgui" }
-   ```
+```toml
+[dependencies]
+blaze-imgui = { git = "https://github.com/blaze280599/BlazeImGui", tag = "rust-v0.1.0" }
+```
 
-   `blaze_imgui::dear_imgui_rs` re-exports the binding, so the app can use it from there and stay in step.
-3. Record where the copy came from (BlazeImGui commit, https://gitlab.com/Blvckberry/BlazeImGui) in a README next
-   to it. Updates are made by copying a newer `rust/blaze-imgui` over it.
+Cargo finds the crate inside the repository by its name. Use `dear-imgui-rs` from the re-export
+(`blaze_imgui::dear_imgui_rs`) or at the same `0.21` version: `dear-imgui-sys` links Dear ImGui natively
+(`links = "dear-imgui"`), so a second version fails dependency resolution instead of building twice.
+
+**Updating:** change `tag` to the newer `rust-v…` and run `cargo update -p blaze-imgui`.
+
+**Releasing a change:** edit `rust/blaze-imgui` here, bump `version` in its `Cargo.toml`, commit, then tag and push
+that commit with the same version (a tag is never moved once projects use it):
+
+```powershell
+git tag rust-v0.2.0; git push origin main rust-v0.2.0
+```
 
 ## Use it
 
