@@ -1,13 +1,15 @@
 # Agent instructions
 
 * **Adding this menu to another project?** Follow [INTEGRATION.md](INTEGRATION.md) step by step. The C#
-  library ships as the `BlazeImGui` NuGet package: `tools/pack.ps1 -Into <project>/packages` puts it in that
-  project's committed local feed. Never copy `src/BlazeImGui` into a project or reference this folder from
+  library ships as NuGet packages (`BlazeImGui.Overlay` for a standalone overlay, `BlazeImGui` alone for a host
+  that owns its ImGui context): `tools/pack.ps1 -Into <project>/packages` puts both in that project's committed
+  local feed. Never copy `src/BlazeImGui` into a project or reference this folder from
   another repository, so every project builds on its own from a fresh clone.
-* **Changing the library itself?** Code lives in `src/BlazeImGui`; `samples/BlazeImGui.Demo/DemoOverlay.cs`
-  exercises every widget. Build with `dotnet build BlazeImGui.sln`. Bump `<Version>` in
-  `src/BlazeImGui/BlazeImGui.csproj` before packing a release (NuGet caches by version); `src/BlazeImGui/PACKAGE.md`
-  is the package's README.
+* **Changing the library itself?** Code lives in `src/BlazeImGui` (no ClickableTransparentOverlay types there:
+  hosts that own their context use it alone) and `src/BlazeImGui.Overlay` (`BlazeOverlay`, `OverlayOptions`,
+  `WindowTarget`); `samples/BlazeImGui.Demo/DemoOverlay.cs` exercises every widget. Build with
+  `dotnet build BlazeImGui.sln`. Bump `<Version>` in `src/Directory.Build.props` before packing a release (NuGet
+  caches by version); each project's `PACKAGE.md` is its package's README.
 * Widgets read colors only from `Theme.Colors` tokens and pack them with `Theme.U32` (so theme switches and
   fades apply); animated state uses `Anim` keyed by ImGui IDs. Keep new widgets to that pattern and to the
   label-above layout (`Ui.Row`: label on its own line, control at `Ui.ControlWidth` under it); descriptions go

@@ -11,21 +11,12 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
-    <!-- NuGet package: `tools\pack.ps1` builds it. Bump Version for every release (NuGet caches by version). -->
+    <!-- The menu, widgets, theme and fonts for any ImGui.NET host; BlazeImGui.Overlay adds the standalone window. -->
     <PackageId>BlazeImGui</PackageId>
-    <Version>1.0.0</Version>
-    <Authors>zack polc</Authors>
-    <Description>Themed, animated Dear ImGui menu for ClickableTransparentOverlay: a four-column menu, light and dark themes, Inter and Lucide icon fonts embedded, toasts and widgets.</Description>
-    <PackageTags>imgui;overlay;ui;theme</PackageTags>
-    <RepositoryUrl>https://github.com/blaze280599/BlazeImGui</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Description>Themed, animated Dear ImGui menu for ImGui.NET: a four-column menu, light and dark themes, Inter and Lucide icon fonts embedded, toasts and widgets. Works in any host that owns an ImGui context; BlazeImGui.Overlay adds a ready-made transparent overlay window.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Exact versions ([x]): consumers get these and NuGet errors on a mismatch instead of breaking at runtime. -->
-    <PackageReference Include="ClickableTransparentOverlay" Version="[11.1.0]" />
+    <!-- Exact version ([x]): consumers get it and NuGet errors on a mismatch instead of breaking at runtime. -->
     <PackageReference Include="ImGui.NET" Version="[1.91.6.1]" />
   </ItemGroup>
   <ItemGroup>

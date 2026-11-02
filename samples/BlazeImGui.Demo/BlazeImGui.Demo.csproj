@@ -9,6 +9,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BlazeImGui\BlazeImGui.csproj" />
+    <ProjectReference Include="..\..\src\BlazeImGui.Overlay\BlazeImGui.Overlay.csproj" />
   </ItemGroup>
 </Project>

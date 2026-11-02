@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Same namespace as the core library: `using BlazeImGui;` covers both. -->
+    <RootNamespace>BlazeImGui</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageId>BlazeImGui.Overlay</PackageId>
+    <Description>BlazeOverlay: a transparent, click-through overlay window (ClickableTransparentOverlay) that runs the BlazeImGui menu, with hotkeys, fades, window following and toasts.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Packs as a dependency on the BlazeImGui package of the same version. -->
+    <ProjectReference Include="..\BlazeImGui\BlazeImGui.csproj" />
+    <PackageReference Include="ClickableTransparentOverlay" Version="[11.1.0]" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="PACKAGE.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+</Project>

@@ -29,15 +29,16 @@ A reusable, minimal and modern ImGui menu base for C# transparent overlays
 ## Quick start
 
 Pack the library into a `packages` folder in your repository, point a `nuget.config` at it, and reference
-the package. Commit the `.nupkg` so your project builds from a plain clone on any machine
-([INTEGRATION.md](INTEGRATION.md), section 2):
+the package. Commit the `.nupkg` files so your project builds from a plain clone on any machine
+([INTEGRATION.md](INTEGRATION.md), section 2). `BlazeImGui.Overlay` is the standalone overlay window; a host
+that already owns its ImGui context references `BlazeImGui` alone (section 2b).
 
 ```powershell
 tools\pack.ps1 -Into C:\code\MyTool\packages
 ```
 
 ```xml
-<PackageReference Include="BlazeImGui" Version="1.0.0" />
+<PackageReference Include="BlazeImGui.Overlay" Version="1.1.0" />
 ```
 
 ```csharp
@@ -88,21 +89,24 @@ Insert shows/hides the menu, End exits.
 ## Layout
 
 ```
-src/BlazeImGui/
+src/Directory.Build.props  package version + metadata shared by both packages
+src/BlazeImGui.Overlay/    package BlazeImGui.Overlay (ClickableTransparentOverlay host)
   BlazeOverlay.cs        base class (lifecycle, hotkeys, fade, follow window)
   OverlayOptions.cs      all settings
+  Core/WindowTarget.cs   follow a game window
+src/BlazeImGui/            package BlazeImGui (any ImGui.NET host)
   Menu/Menu.cs           the menu window: rail, pages, tabs, status column
   Widgets/Ui.*.cs        themed, animated widgets
   Widgets/Notify.cs      toasts
   Theming/               Theme, Palette (dark/light tokens), Fonts
-  Core/                  Anim, Input (keys), WindowTarget
+  Core/                  Anim, Input (keys)
   Icons.g.cs             generated Lucide constants
   Assets/Fonts/          Inter + Lucide (embedded)
   PACKAGE.md             README shipped inside the NuGet package
 samples/BlazeImGui.Demo  every widget on one overlay
 cpp/                     C++ port (Dear ImGui 1.92+)
 rust/                    Rust port (dear-imgui-rs)
-tools/pack.ps1           build the NuGet package (-Into copies it to a project feed)
+tools/pack.ps1           build both NuGet packages (-Into copies them to a project feed)
 tools/pack-cpp.ps1       build the C++ package (-Into copies it into a project)
 tools/generate-icons.ps1 refresh the icon font + constants
 tools/generate-cpp.ps1   regenerate the C++ icons + embedded fonts

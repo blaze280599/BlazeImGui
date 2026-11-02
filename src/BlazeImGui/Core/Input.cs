@@ -11,7 +11,7 @@ public static class Input
     private static readonly bool[] Previous = new bool[256];
     private static readonly bool[] Current = new bool[256];
 
-    /// <summary>Called once per frame by <see cref="BlazeOverlay"/>; call it yourself only if you do not use the base class.</summary>
+    /// <summary>Called once per frame by <c>BlazeOverlay</c>; call it yourself only if you do not use the base class.</summary>
     public static void Update()
     {
         for (var key = 1; key < 256; key++)

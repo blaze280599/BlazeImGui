@@ -19,7 +19,7 @@ public enum Tone { Neutral, Accent, Success, Warning, Danger }
 /// </summary>
 public static partial class Ui
 {
-    /// <summary>UI scale; set from <see cref="OverlayOptions.UiScale"/>.</summary>
+    /// <summary>UI scale; set from <c>OverlayOptions.UiScale</c>.</summary>
     public static float Scale { get; set; } = 1f;
 
     /// <summary>True while a <see cref="Keybind"/> waits for a key; the overlay ignores its hotkeys meanwhile.</summary>
@@ -32,6 +32,15 @@ public static partial class Ui
     public static bool InlineDescriptions { get; set; }
 
     private static uint _capturingKey;
+
+    /// <summary>Ends a pending keybind capture and clears the ABOUT text; call it when the host replaces its ImGui context.</summary>
+    public static void ResetState()
+    {
+        _capturingKey = 0;
+        CurrentAbout = null;
+        InlineDescriptions = false;
+    }
+
     private static float S(float value) => value * Scale;
     private static Palette P => Theme.Colors;
     private static uint Col(Vector4 color, float alpha = 1f) => Theme.U32(color, alpha);

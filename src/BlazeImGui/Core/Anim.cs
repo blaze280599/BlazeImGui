@@ -38,6 +38,9 @@ public static class Anim
     /// <summary>Overwrites a stored value, e.g. to restart a transition from 0.</summary>
     public static void Set(uint id, float value) => Values[id] = value;
 
+    /// <summary>Forgets every animated value; call it when the host replaces its ImGui context (IDs then mean other items).</summary>
+    public static void Reset() => Values.Clear();
+
     public static float Lerp(float a, float b, float t) => a + (b - a) * t;
     public static Vector2 Lerp(Vector2 a, Vector2 b, float t) => a + (b - a) * t;
     public static Vector4 Lerp(Vector4 a, Vector4 b, float t) => a + (b - a) * t;

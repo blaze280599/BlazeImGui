@@ -78,7 +78,7 @@ public static class Theme
     public static uint U32(Vector4 color, float alpha = 1f)
         => ImGui.ColorConvertFloat4ToU32(color with { W = color.W * alpha * ImGui.GetStyle().Alpha });
 
-    /// <summary>Applies sizes and rounding. Called once at startup by <see cref="BlazeOverlay"/>.</summary>
+    /// <summary>Applies sizes and rounding. Called once at startup by <c>BlazeOverlay</c>.</summary>
     public static void ApplyStyle(float scale = 1f)
     {
         var style = ImGui.GetStyle();

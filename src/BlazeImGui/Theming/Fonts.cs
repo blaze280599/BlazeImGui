@@ -65,7 +65,7 @@ public static unsafe class Fonts
 
     /// <summary>
     /// Adds another Inter size/weight (icons merged) and returns it. Only valid while fonts are being built,
-    /// i.e. inside <see cref="BlazeOverlay"/>'s <c>OnLoadFonts()</c> override. Store the result in a field:
+    /// i.e. inside <c>BlazeOverlay</c>'s <c>OnLoadFonts()</c> override. Store the result in a field:
     /// <code>protected override void OnLoadFonts() => _labelFont = Fonts.Add(FontWeight.SemiBold, 18);</code>
     /// <paramref name="size"/> is in pixels before UI scale.
     /// </summary>

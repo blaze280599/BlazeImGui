@@ -169,8 +169,11 @@ public sealed class Menu
         var scale = Ui.Scale;
         var p = Theme.Colors;
         var viewport = ImGui.GetMainViewport();
-        ImGui.SetNextWindowSize(Size * scale, ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSizeConstraints(MinSize * scale, new Vector2(float.MaxValue));
+        // Never larger than the viewport (small game windows); the minimum size gives way when it doesn't fit.
+        var available = Vector2.Max(Vector2.One, viewport.WorkSize - new Vector2(24f * scale));
+        var minimum = Vector2.Min(MinSize * scale, available);
+        ImGui.SetNextWindowSize(Vector2.Clamp(Size * scale, minimum, available), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSizeConstraints(minimum, available);
         // The window rises slightly while it fades in; once open the user can drag it freely.
         var rise = (1f - Anim.EaseOutCubic(visibility)) * 14f * scale;
         if (_restPosition is { } rest && visibility < 1f)

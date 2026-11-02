@@ -6,11 +6,12 @@ follow [cpp/README.md](cpp/README.md). **Rust project?** Use the Rust port: foll
 ImGui.NET — it is themed automatically.
 
 > **Source of this library:** `C:\Users\blazi\Desktop\AI Projects\BlazeImGui` · https://gitlab.com/Blvckberry/BlazeImGui
-> **Library project:** `src\BlazeImGui\BlazeImGui.csproj` · **Working example:** `samples\BlazeImGui.Demo\DemoOverlay.cs`
+> **Library projects:** `src\BlazeImGui` (menu, widgets, theme, fonts) and `src\BlazeImGui.Overlay` (the
+> `BlazeOverlay` window) · **Working example:** `samples\BlazeImGui.Demo\DemoOverlay.cs`
 >
-> **Rule:** projects use the **`BlazeImGui` NuGet package** from a local feed committed in their own
-> repository (section 2), so every project builds on its own from a plain clone. Never reference this folder
-> from another repository, and don't copy the library source into it.
+> **Rule:** projects use the **NuGet packages** from a local feed committed in their own repository (section 2),
+> so every project builds on its own from a plain clone. Never reference this folder from another repository,
+> and don't copy the library source into it.
 
 ---
 
@@ -32,6 +33,13 @@ ImGui.NET — it is themed automatically.
 
 Fonts are embedded in `BlazeImGui.dll`; nothing needs copying.
 
+There are two packages (both in namespace `BlazeImGui`):
+
+| Package | Contains | Use it when |
+|---|---|---|
+| **`BlazeImGui.Overlay`** | `BlazeOverlay`, `OverlayOptions`, `WindowTarget`; depends on `BlazeImGui` and ClickableTransparentOverlay | the app is its own transparent overlay window (the usual case; sections 3–11) |
+| **`BlazeImGui`** | everything else above; depends only on ImGui.NET | the host already owns the ImGui context and renderer (an injected hook, an engine): section 2b |
+
 ## 1. Requirements (check the target project first)
 
 | Requirement | Value |
@@ -39,23 +47,23 @@ Fonts are embedded in `BlazeImGui.dll`; nothing needs copying.
 | Target framework | `net8.0-windows` (or later Windows TFM) |
 | Platform | `x64` (`<Platforms>x64</Platforms>` and `<PlatformTarget>x64</PlatformTarget>`) |
 | ImGui.NET | **1.91.6.1** — must match exactly if the project also references it |
-| ClickableTransparentOverlay | **11.1.0** — must match exactly if the project also references it |
+| ClickableTransparentOverlay | **11.1.0** (`BlazeImGui.Overlay` only) — must match exactly if the project also references it |
 
-The package pins both dependencies to these exact versions, so they flow in transitively and the target
+The packages pin their dependencies to these exact versions, so they flow in transitively and the target
 needs no `PackageReference` of its own for them. If the target already references them at **different
 versions**, restore fails with `NU1605` (package downgrade): change the target's versions to the ones
 above, or remove those references.
 
 ## 2. Add the package (default)
 
-The library ships as one NuGet package (`BlazeImGui.<version>.nupkg`, ~1.2 MB: the DLL with embedded fonts,
-XML docs for IntelliSense, and the font licenses). The target keeps it in a `packages` folder in its own
-repository, so it builds from a plain `git clone` on any machine with no BlazeImGui folder next to it.
+The library ships as two NuGet packages: `BlazeImGui.<version>.nupkg` (~1.2 MB: the DLL with embedded fonts,
+XML docs for IntelliSense, and the font licenses) and `BlazeImGui.Overlay.<version>.nupkg` (~20 KB). The target
+keeps them in a `packages` folder in its own repository, so it builds from a plain `git clone` on any machine with no BlazeImGui folder next to it.
 Do **not** copy `src\BlazeImGui` into the target, point a `ProjectReference` outside the target repository,
 or use a git submodule unless the user asks.
 
-1. **Pack it into the target's feed** from this repository (builds `artifacts\BlazeImGui.<version>.nupkg`,
-   copies it into the folder and removes older BlazeImGui packages there):
+1. **Pack them into the target's feed** from this repository (builds both packages into `artifacts\`, copies
+   them into the folder and removes older versions there):
 
    ```powershell
    & "C:\Users\blazi\Desktop\AI Projects\BlazeImGui\tools\pack.ps1" -Into "<target-repo>\packages"
@@ -76,23 +84,27 @@ or use a git submodule unless the user asks.
    </configuration>
    ```
 
-3. **Reference the package** from the app's `.csproj`, using the version the pack script printed:
+3. **Reference one package** from the app's `.csproj`, using the version the pack script printed:
+   `BlazeImGui.Overlay` for a standalone overlay (it brings `BlazeImGui` with it), or `BlazeImGui` alone for a
+   host that owns its ImGui context (section 2b).
 
    ```xml
    <ItemGroup>
-     <!-- Menu, theme, fonts and widgets. The package is in ..\packages (see nuget.config). -->
-     <PackageReference Include="BlazeImGui" Version="1.0.0" />
+     <!-- BlazeOverlay + the menu, theme, fonts and widgets. The packages are in packages\ (see nuget.config). -->
+     <PackageReference Include="BlazeImGui.Overlay" Version="1.1.0" />
    </ItemGroup>
    ```
 
-4. **Commit the package.** Many `.gitignore` templates (including Visual Studio's) ignore `*.nupkg` and
-   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.0.0.nupkg`; if it prints a rule, add these
-   lines to the end of the target's `.gitignore`:
+4. **Commit the packages.** Many `.gitignore` templates (including Visual Studio's) ignore `*.nupkg` and
+   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.1.0.nupkg`; if it prints a rule, add these
+   lines to the end of the target's `.gitignore` (adjust the folder if the feed is not at the root):
 
    ```gitignore
    !packages/
    !packages/BlazeImGui.*.nupkg
    ```
+
+   A project that references only `BlazeImGui` may delete `BlazeImGui.Overlay.*.nupkg` from its feed.
 
    The `.gitignore` must also cover `**/bin/`, `**/obj/` and `imgui.ini`.
 
@@ -106,12 +118,45 @@ or use a git submodule unless the user asks.
    ```
 
 **Updating** a project to a newer BlazeImGui: run the pack script with `-Into` again (it replaces the old
-`.nupkg`), set the new `Version` on the `PackageReference`, build, and commit both.
+`.nupkg` files), set the new `Version` on the `PackageReference`, build, and commit both.
 
-**Releasing a change to the library:** edit `src\BlazeImGui` here, then **bump `<Version>`** in
-`src\BlazeImGui\BlazeImGui.csproj` (or pass `tools\pack.ps1 -Version 1.1.0`). NuGet caches packages by
-version in `%USERPROFILE%\.nuget\packages`, so re-packing the same version gives projects the old copy.
-Fixes go here and ship as a new version; never patch the library inside a target project.
+**Releasing a change to the library:** edit `src\BlazeImGui` or `src\BlazeImGui.Overlay` here, then **bump
+`<Version>`** in `src\Directory.Build.props` (shared by both packages; or pass `tools\pack.ps1 -Version 1.2.0`).
+NuGet caches packages by version in `%USERPROFILE%\.nuget\packages`, so re-packing the same version gives
+projects the old copy. Fixes go here and ship as a new version; never patch the library inside a target project.
+
+## 2b. A host that owns the ImGui context (no `BlazeOverlay`)
+
+Reference only the `BlazeImGui` package and do what `BlazeOverlay` would. The host's ImGui must be the version
+ImGui.NET 1.91.6.1 binds (Dear ImGui 1.91.6), since both sides share one context.
+
+```csharp
+var menu = new Menu { Title = "mytool" };                 // pages and tabs as in section 3, on menu instead of Menu
+menu.AddPage("Visuals", Icons.Eye, "Overlay").AddTab("General", DrawVisuals);
+
+// Once per ImGui context, after it exists and before the host builds/uploads its font atlas:
+Anim.Reset(); Ui.ResetState(); Notify.Clear();            // only needed when the host replaces a context
+Ui.Scale = 1f;
+Fonts.Load();                                             // Fonts.Load(bodySize, scale) for other sizes
+Theme.Set(ThemeMode.Light, animate: false);
+Theme.ApplyStyle();
+
+// Every frame, between the host's NewFrame and Render:
+Input.Update();
+Theme.Update();
+var alpha = Anim.To(ImGui.GetID("##menu-fade"), visible ? 1f : 0f, visible ? 14f : 20f, 0f);
+if (alpha > .002f)
+{
+    ImGui.PushStyleVar(ImGuiStyleVar.Alpha, alpha);
+    menu.Draw(alpha, visible);
+    ImGui.PopStyleVar();
+}
+Notify.Draw();
+```
+
+The host handles its own show/hide key: skip it while `Ui.IsCapturingKey` or `ImGui.GetIO().WantTextInput`.
+A host that skips frames while the menu is hidden keeps drawing while `alpha > .002f || Notify.HasPending`.
+`menu.CloseRequested` fires when a "Close menu" button calls `menu.RequestClose()`.
 
 ## 3. Create the overlay
 

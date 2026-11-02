@@ -29,6 +29,12 @@ public static class Notify
     /// <summary>The corner toasts stack from.</summary>
     public static ToastCorner Corner { get; set; } = ToastCorner.TopRight;
 
+    /// <summary>True while a toast is showing or queued; a host that skips frames while its menu is hidden keeps drawing.</summary>
+    public static bool HasPending { get { lock (Gate) return Toasts.Count != 0; } }
+
+    /// <summary>Drops every toast; call it when the host replaces its ImGui context.</summary>
+    public static void Clear() { lock (Gate) { Toasts.Clear(); _nextId = 0; } }
+
     public static void Show(string title, string? message = null, Tone tone = Tone.Accent, float seconds = 3.5f, string? icon = null)
     {
         icon ??= tone switch
@@ -45,7 +51,7 @@ public static class Notify
         }
     }
 
-    /// <summary>Draws and ages the toasts. Called every frame by <see cref="BlazeOverlay"/>.</summary>
+    /// <summary>Draws and ages the toasts. Called every frame by <c>BlazeOverlay</c>.</summary>
     public static void Draw()
     {
         Toast[] toasts;
