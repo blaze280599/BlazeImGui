@@ -132,16 +132,17 @@ impl Palette {
             raised: hex("#F9F9FB", 1.0),
             border: hex("#0B0B12", 0.10),
             text: hex("#2B2B30", 1.0),
-            text_muted: hex("#8E8E98", 1.0),
-            text_faint: hex("#B6B6BF", 1.0),
+            text_muted: hex("#696973", 1.0),
+            text_faint: hex("#9A9AA4", 1.0),
             accent: hex("#2B2B30", 1.0),
             accent_hover: hex("#3B3B41", 1.0),
             on_accent: hex("#F3F3F6", 1.0),
             knob: hex("#F9F9FB", 1.0),
             brand: hex("#FF5C9D", 1.0),
-            success: hex("#2EA44F", 1.0),
-            warning: hex("#E8820C", 1.0),
-            danger: hex("#E5484D", 1.0),
+            // Deep enough to read as text on the light background (about 4.5:1), not only as fills.
+            success: hex("#1F7A3A", 1.0),
+            warning: hex("#A35500", 1.0),
+            danger: hex("#C62A2F", 1.0),
         }
     }
 }

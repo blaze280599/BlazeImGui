@@ -116,15 +116,16 @@ public sealed class Palette
         Raised = Hex("#F9F9FB"),
         Border = Hex("#0B0B12", .10f),
         Text = Hex("#2B2B30"),
-        TextMuted = Hex("#8E8E98"),
-        TextFaint = Hex("#B6B6BF"),
+        TextMuted = Hex("#696973"),
+        TextFaint = Hex("#9A9AA4"),
         Accent = Hex("#2B2B30"),
         AccentHover = Hex("#3B3B41"),
         OnAccent = Hex("#F3F3F6"),
         Knob = Hex("#F9F9FB"),
         Brand = Hex("#FF5C9D"),
-        Success = Hex("#2EA44F"),
-        Warning = Hex("#E8820C"),
-        Danger = Hex("#E5484D"),
+        // Deep enough to read as text on the light background (about 4.5:1), not only as fills.
+        Success = Hex("#1F7A3A"),
+        Warning = Hex("#A35500"),
+        Danger = Hex("#C62A2F"),
     };
 }

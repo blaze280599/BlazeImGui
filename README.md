@@ -16,8 +16,8 @@ A reusable, minimal and modern ImGui menu base for C# transparent overlays
 * **Drop-in base class** — derive from `BlazeOverlay`, add pages, `await Run()`. Fonts, theme, hotkeys
   (Insert / End), taskbar hiding, screen coverage or game-window following are handled for you.
 * **Four-column menu** — an icon rail with the brand mark, the page's tabs, the controls, and a status column
-  with live readouts and an ABOUT hint that explains whichever control is hovered. The rail tile and tab
-  marker glide; content fades in on every switch.
+  with live readouts and an ABOUT hint that names and explains whichever control is hovered. The rail tile and
+  tab highlight glide; content fades in on every switch.
 * **Light & dark themes** — soft grey surfaces, near-black ink for selection and fills, a single brand-colored
   dot; smooth cross-fade between themes.
 * **Animated widgets** — checkbox rows, sliders with a value box and grip, outlined buttons and dropdowns,

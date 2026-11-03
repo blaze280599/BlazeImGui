@@ -1,6 +1,6 @@
 //! The menu window, in four columns: an icon rail with the brand mark, the page's title and tabs with the brand footer,
 //! the selected tab's controls, and a status column with live readouts and an ABOUT hint for the hovered control.
-//! The rail tile and tab marker glide; content fades in when the page or tab changes.
+//! The rail tile and tab highlight glide; content fades in when the page or tab changes.
 //!
 //! Pages and tabs are closures over your application state `S`: `menu.draw(ui, &mut state, ..)` lends the state to
 //! whichever closures run this frame.
@@ -106,8 +106,8 @@ pub struct Menu<S> {
     pub resizable: bool,
     pub rail_width: f32,
     pub nav_width: f32,
-    /// The controls column; the status column takes the rest.
-    pub content_width: f32,
+    /// The status column; the controls column takes the rest.
+    pub status_width: f32,
     /// Without the status column the controls take the rest and descriptions show under their controls.
     pub show_status: bool,
     pub status_title: String,
@@ -118,6 +118,8 @@ pub struct Menu<S> {
     selected: usize,
     page_progress: f32,
     nav_progress: f32,
+    about_progress: f32,
+    about_shown: (String, String),
     rest_position: Option<V2>,
     center_pending: bool,
     window_center: V2,
@@ -136,7 +138,7 @@ impl<S> Default for Menu<S> {
             resizable: true,
             rail_width: 62.0,
             nav_width: 200.0,
-            content_width: 340.0,
+            status_width: 280.0,
             show_status: true,
             status_title: "Status".into(),
             status: None,
@@ -145,6 +147,8 @@ impl<S> Default for Menu<S> {
             selected: 0,
             page_progress: 1.0,
             nav_progress: 1.0,
+            about_progress: 1.0,
+            about_shown: (String::new(), String::new()),
             rest_position: None,
             center_pending: false,
             window_center: V2::ZERO,
@@ -163,6 +167,11 @@ fn title_y() -> f32 {
 
 fn body_top() -> f32 {
     54.0 * ui::scale()
+}
+
+// The ABOUT text's bottom edge above the window's, level with the brand footer.
+fn about_bottom() -> f32 {
+    30.0 * ui::scale()
 }
 
 // A soft shadow under the window, drawn behind every ImGui window.
@@ -268,6 +277,7 @@ impl<S> Menu<S> {
 
     fn reset_about(&self) {
         ui::set_current_about(self.current_tab().and_then(|t| t.about.as_deref()).unwrap_or(""));
+        ui::set_current_about_title("");
     }
 
     /// Draws the window. `visibility`: the open/close fade (0..1); `interactive`: false while fading out.
@@ -344,7 +354,7 @@ impl<S> Menu<S> {
 
         let rail = self.rail_width * scale;
         let nav = self.nav_width * scale;
-        let content = if self.show_status { self.content_width * scale } else { size.x - rail - nav };
+        let content = size.x - rail - nav - if self.show_status { self.status_width * scale } else { 0.0 };
         let draw = Draw::window();
         let lines = [rail, rail + nav, rail + nav + content];
         for &x in &lines[..if self.show_status { 3 } else { 2 }] {
@@ -456,11 +466,13 @@ impl<S> Menu<S> {
                 );
             }
 
-            // Tabs. The selected one is in full text color with a short marker at the column's right edge.
+            // Tabs. The selected one is in full text color on a soft pill that glides beneath the labels.
             let mut y = 102.0 * scale;
             let row = 29.0 * scale;
             let mut selected_y = y;
             let mut clicked = None;
+            draw.channels_split(2);
+            draw.channels_set_current(1);
             for (i, tab) in page.tabs.iter().enumerate() {
                 ui::set_cursor_pos(v2(x + pad * 0.5, y));
                 ui::push_id_int((selected * 1000 + i) as i32);
@@ -474,7 +486,7 @@ impl<S> Menu<S> {
                 let hover = anim::toggle(ui::get_id(c"##hover"), hovered, 18.0);
                 let active = anim::toggle(ui::get_id(c"##active"), i == page.selected_tab, 16.0);
                 ui::pop_id();
-                let color = crate::palette::lerp(crate::palette::lerp(p.text_faint, p.text_muted, hover), p.text, active);
+                let color = crate::palette::lerp(p.text_muted, p.text, hover.max(active));
                 let text_y = y + (row - ui::text_line_height()) * 0.5;
                 draw.text(origin + v2(pad + slide, text_y), theme::u32(color, t), &tab.title);
                 if i == page.selected_tab {
@@ -482,14 +494,14 @@ impl<S> Menu<S> {
                 }
                 y += row;
             }
+            draw.channels_set_current(0);
             if !page.tabs.is_empty() {
-                // Keyed per page so switching pages snaps the marker instead of gliding across pages.
-                let marker_y = anim::to(ui::get_id_str(&format!("##tabmarker{selected}")), selected_y, 18.0, None);
-                let marker_height = 11.0 * scale;
-                let mx = origin.x + width - 15.0 * scale;
-                let my = origin.y + marker_y + (row - marker_height) * 0.5;
-                draw.rect_filled(v2(mx, my), v2(mx + 2.0 * scale, my + marker_height), theme::u32(p.text, t), scale);
+                // Keyed per page so switching pages snaps the pill instead of gliding across pages.
+                let pill_y = anim::to(ui::get_id_str(&format!("##tabpill{selected}")), selected_y, 18.0, None);
+                let min = origin + v2(pad * 0.5 + slide, pill_y);
+                draw.rect_filled(min, min + v2(width - pad, row), theme::u32(p.field, t), 6.0 * scale);
             }
+            draw.channels_merge();
             if let Some(index) = clicked {
                 page.set_selected_tab(index);
             }
@@ -564,14 +576,29 @@ impl<S> Menu<S> {
         let pad = pad();
         draw.text_font(fonts::title(), origin + v2(pad, title_y()), theme::u32(p.text, 1.0), &self.status_title);
 
-        // live readouts above, the ABOUT hint for the hovered control anchored near the bottom
-        let about_top = size.y - 168.0 * scale;
+        // The ABOUT hint for the hovered control sits on the bottom edge, as tall as its text; the live readouts fill the
+        // space above it.
+        let about = ui::current_about();
+        let title = ui::current_about_title();
+        let wrap = size.x - pad * 2.0;
+        let caption_gap = 8.0 * scale;
+        let title_gap = 3.0 * scale;
+        let mut about_top = size.y;
+        if !about.is_empty() {
+            let mut height = fonts::small().px() + caption_gap + fonts::small().calc_text_size_wrapped(&about, wrap).y;
+            if !title.is_empty() {
+                height += fonts::medium().calc_text_size_wrapped(&title, wrap).y + title_gap;
+            }
+            about_top = size.y - about_bottom() - height;
+        }
+
+        let readouts_bottom = if about.is_empty() { size.y - 4.0 * scale } else { about_top - 16.0 * scale };
         ui::set_cursor_pos(position + v2(0.0, body_top()));
         ui::push_style_var_v2(sys::ImGuiStyleVar_WindowPadding, v2(pad, 6.0 * scale));
         unsafe {
             sys::igBeginChild_Str(
                 c"##status".as_ptr(),
-                v2(size.x, about_top - body_top() - 8.0 * scale).into(),
+                v2(size.x, (readouts_bottom - body_top()).max(1.0)).into(),
                 sys::ImGuiChildFlags_AlwaysUseWindowPadding as _,
                 sys::ImGuiWindowFlags_NoBackground as _,
             );
@@ -585,19 +612,34 @@ impl<S> Menu<S> {
         }
         unsafe { sys::igEndChild() };
 
-        let about = ui::current_about();
         if about.is_empty() {
             return;
         }
+        // A new description fades in, as content does after a tab switch.
+        if self.about_shown.0 != title || self.about_shown.1 != about {
+            self.about_shown = (title.clone(), about.clone());
+            self.about_progress = 0.0;
+        }
+        self.about_progress = (self.about_progress + anim::delta() / 0.2).min(1.0);
         ui::set_cursor_pos(position + v2(pad, about_top));
         ui::begin_group();
-        unsafe { sys::igPushTextWrapPos(sys::igGetCursorPosX() + size.x - pad * 2.5) };
-        ui::caption(ui, &self.about_title);
-        fonts::push(fonts::small());
         ui::push_style_var_v2(sys::ImGuiStyleVar_ItemSpacing, V2::ZERO);
-        ui::text(ui, &about, p.text_muted);
-        ui::pop_style_var(1);
+        unsafe { sys::igPushTextWrapPos(sys::igGetCursorPosX() + wrap) };
+        fonts::push(fonts::small());
+        ui::text(ui, &self.about_title.to_uppercase(), p.text_faint);
         fonts::pop();
+        ui::dummy(v2(0.0, caption_gap));
+        ui::push_style_var(sys::ImGuiStyleVar_Alpha, ui::style().Alpha * anim::ease_out_cubic(self.about_progress));
+        if !title.is_empty() {
+            fonts::push(fonts::medium());
+            ui::text(ui, &title, p.text);
+            fonts::pop();
+            ui::dummy(v2(0.0, title_gap));
+        }
+        fonts::push(fonts::small());
+        ui::text(ui, &about, p.text_muted);
+        fonts::pop();
+        ui::pop_style_var(2);
         unsafe { sys::igPopTextWrapPos() };
         ui::end_group();
     }

@@ -296,7 +296,7 @@ Hotkeys never fire while an ImGui text field has focus or a `Ui.Keybind` is wait
 | `Menu.Select("Relax")` / `Menu.Select("Relax/Timing")` / `Menu.Selected = i` | current page (and tab) |
 | `Menu.Status` / `StatusTitle` / `AboutTitle` | default status column, its title ("Status"), the hint caption ("About") |
 | `Menu.ShowStatus = false` | drop the status column; descriptions then show under each control |
-| `Menu.RailWidth` / `NavWidth` / `ContentWidth` | column widths (62 / 200 / 340); the status column takes the rest |
+| `Menu.RailWidth` / `NavWidth` / `StatusWidth` | column widths (62 / 200 / 280); the controls column takes the rest |
 | `Menu.RequestClose()` / `Menu.CloseRequested` | hide the menu (e.g. a "Close menu" button) |
 
 **Widgets.** Labeled controls stack: the label on its own line, the control under it at `Ui.ControlWidth`
@@ -311,7 +311,7 @@ the control is hovered. Labels follow ImGui ID rules — text after `##` is hidd
 | `Ui.Caption("Title")` | quiet uppercase label ("AIM ASSIST"); heads a group of readouts or rows |
 | `Ui.Section("Title")` | a caption with room above it when it follows other content |
 | `Ui.Readout(label, value, Tone = Neutral)` | status line: muted label, value in a column to the right (`Tone.Success` = green) |
-| `Ui.About(description)` | attach an ABOUT description to the previous item or group (any ImGui widget) |
+| `Ui.About(description, title?)` | attach an ABOUT description to the previous item or group (any ImGui widget); `title` names the control above it |
 | `Ui.BeginCard("id", title?, icon?)` … `Ui.EndCard()` | rounded surface that fits its content; **always pair** |
 | `if (Ui.BeginGrid("id", columns)) { Ui.NextCell(); … Ui.EndGrid(); }` | equal columns; `EndGrid` only if `BeginGrid` returned true |
 | `Ui.Row("Label", controlWidth = 0)` | label on its own line, then the cursor/width for **any** ImGui widget: `Ui.Row("Mode"); ImGui.SliderAngle("##a", ref r);` |
@@ -509,8 +509,8 @@ Keep the project's data/sampling code unchanged — only the presentation layer 
 1. `dotnet build` — no errors, and a fresh clone in an empty folder also builds (section 2, step 6).
    `git ls-files packages` lists the `.nupkg`.
 2. Run the app: the menu appears centered and fades in; Insert hides/shows it; End exits.
-3. Click every rail icon and tab: content fades in, the rail tile and tab marker glide, widgets respond, and
-   hovering a control with a description updates ABOUT in the status column.
+3. Click every rail icon and tab: content fades in, the rail tile and tab highlight glide, widgets respond, and
+   hovering a control with a description shows its name and description under ABOUT in the status column.
 4. Switch Light/Dark (`Theme.Toggle()`, e.g. from a settings page): all colors cross-fade, nothing stays dark-on-dark or light-on-light
    (if a custom draw stays wrong, it is using a hard-coded color instead of `Theme.Colors`).
 5. If `Follow` is set: the overlay sits exactly on the game window and hotkeys only work while it is focused.

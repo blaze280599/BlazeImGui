@@ -43,6 +43,7 @@ pub enum ButtonKind {
 thread_local! {
     static SCALE: Cell<f32> = const { Cell::new(1.0) };
     static CURRENT_ABOUT: RefCell<String> = const { RefCell::new(String::new()) };
+    static CURRENT_ABOUT_TITLE: RefCell<String> = const { RefCell::new(String::new()) };
     static INLINE_DESCRIPTIONS: Cell<bool> = const { Cell::new(false) };
     static READOUT_SPLIT: Cell<f32> = const { Cell::new(0.42) };
     static CAPTURING_KEY: Cell<u32> = const { Cell::new(0) };
@@ -66,6 +67,18 @@ pub fn set_current_about(text: &str) {
     CURRENT_ABOUT.with_borrow_mut(|s| {
         s.clear();
         s.push_str(text);
+    });
+}
+
+/// The name of the control [`current_about`] describes, shown above it; empty for the tab's description.
+pub fn current_about_title() -> String {
+    CURRENT_ABOUT_TITLE.with_borrow(|s| s.clone())
+}
+
+pub fn set_current_about_title(title: &str) {
+    CURRENT_ABOUT_TITLE.with_borrow_mut(|s| {
+        s.clear();
+        s.push_str(title);
     });
 }
 
@@ -397,9 +410,19 @@ pub fn readout(ui: &Ui, label: &str, value: &str, tone: Tone) {
 /// Attaches a description to the previous item or group: shown under ABOUT while hovered, or right under it when the
 /// menu has no status column.
 pub fn about(ui: &Ui, description: Option<&str>) {
+    about_core(ui, "", description);
+}
+
+/// [`about`] with the control's name shown above the description under ABOUT (text after "##" is dropped).
+pub fn about_with_title(ui: &Ui, title: &str, description: Option<&str>) {
+    about_core(ui, title, description);
+}
+
+fn about_core(ui: &Ui, title: &str, description: Option<&str>) {
     let Some(description) = description else { return };
     if unsafe { sys::igIsItemHovered(sys::ImGuiHoveredFlags_AllowWhenBlockedByActiveItem as _) } {
         set_current_about(description);
+        set_current_about_title(visible(title));
     }
     if !INLINE_DESCRIPTIONS.get() {
         return;
@@ -606,7 +629,30 @@ fn check_size() -> f32 {
     s(14.0).round()
 }
 
-// A square box with a hairline border; when on, a smaller ink square grows in its middle.
+// The check's stroke runs from the end of its short leg to the tip of its long one as progress goes 0..1.
+fn draw_check_mark(draw: Draw, min: V2, bx: f32, progress: f32) {
+    let a = min + v2(bx * 0.26, bx * 0.53);
+    let b = min + v2(bx * 0.43, bx * 0.70);
+    let c = min + v2(bx * 0.75, bx * 0.33);
+    let short_leg = (b.x - a.x).hypot(b.y - a.y);
+    let long_leg = (c.x - b.x).hypot(c.y - b.y);
+    let length = (short_leg + long_leg) * progress;
+    let color = col(p().on_accent, 1.0);
+    let thickness = s(1.75).max(1.5);
+    if length <= short_leg {
+        draw.line(a, a + (b - a) * (length / short_leg), color, thickness);
+        return;
+    }
+    let tip = b + (c - b) * ((length - short_leg) / long_leg);
+    unsafe {
+        sys::ImDrawList_PathLineTo(draw.0, a.into());
+        sys::ImDrawList_PathLineTo(draw.0, b.into());
+        sys::ImDrawList_PathLineTo(draw.0, tip.into());
+        sys::ImDrawList_PathStroke(draw.0, color, thickness, 0);
+    }
+}
+
+// A square box with a hairline border; when on, it fills with ink and a check draws itself in.
 fn draw_check(start: V2, height: f32, text: &str, value: bool, hovered: bool) {
     let p = p();
     let on = anim::toggle(get_id(c"##on"), value, 20.0);
@@ -614,12 +660,13 @@ fn draw_check(start: V2, height: f32, text: &str, value: bool, hovered: bool) {
     let draw = Draw::window();
     let bx = check_size();
     let min = v2(start.x, (start.y + (height - bx) * 0.5).round());
-    draw.rect_filled(min, min + V2::splat(bx), col(palette::lerp(p.surface, p.elevated, hover), 1.0), s(3.0));
-    draw.rect(min, min + V2::splat(bx), col(palette::lerp(p.border, p.text_faint, hover * 0.6), 1.0), s(3.0));
+    let ink = palette::lerp(p.accent, p.accent_hover, hover);
+    let fill = palette::lerp(palette::lerp(p.surface, p.elevated, hover), ink, on);
+    let border = palette::lerp(palette::lerp(p.border, p.text_faint, hover * 0.6), ink, on);
+    draw.rect_filled(min, min + V2::splat(bx), col(fill, 1.0), s(3.0));
+    draw.rect(min, min + V2::splat(bx), col(border, 1.0), s(3.0));
     if on > 0.01 {
-        let inner = anim::lerp(s(2.0), s(8.0), anim::ease_out_cubic(on));
-        let center = min + V2::splat(bx * 0.5);
-        draw.rect_filled(center - V2::splat(inner * 0.5), center + V2::splat(inner * 0.5), col(p.accent, on), s(1.5));
+        draw_check_mark(draw, min, bx, anim::ease_out_cubic(on));
     }
     if !text.is_empty() {
         draw.text(v2(min.x + bx + s(10.0), start.y + (height - text_line_height()) * 0.5), col(p.text, 1.0), text);
@@ -642,7 +689,7 @@ pub fn toggle(ui: &Ui, label: &str, value: &mut bool, description: Option<&str>)
     }
     draw_check(start, height, visible(label), *value, hovered);
     pop_id();
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }
@@ -750,7 +797,7 @@ fn slider_core(ui: &Ui, label: &str, value: &mut f32, min: f32, max: f32, step: 
     dummy(v2(width, height));
     end_group();
     pop_id();
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }
@@ -980,7 +1027,7 @@ pub fn combo(ui: &Ui, label: &str, index: &mut usize, items: &[&str], descriptio
     pop_style_var(4);
     end_group();
     pop_id();
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }
@@ -1001,7 +1048,7 @@ pub fn text_input(ui: &Ui, label: &str, value: &mut String, hint_text: &str, max
         *value = String::from_utf8_lossy(&buffer[..end]).into_owned();
     }
     end_group();
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }
@@ -1015,7 +1062,7 @@ pub fn number(ui: &Ui, label: &str, value: &mut f32, speed: f32, min: f32, max: 
     let format = cstring(format);
     let changed = unsafe { sys::igDragFloat(id.as_ptr(), value, speed, min, max, format.as_ptr(), 0) };
     end_group();
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }
@@ -1027,7 +1074,7 @@ pub fn number_int(ui: &Ui, label: &str, value: &mut i32, speed: f32, min: i32, m
     let id = cstring(&format!("##{label}"));
     let changed = unsafe { sys::igDragInt(id.as_ptr(), value, speed, min, max, c"%d".as_ptr(), 0) };
     end_group();
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }
@@ -1046,7 +1093,7 @@ pub fn color(ui: &Ui, label: &str, value: &mut Color, alpha: bool, description: 
     unsafe { sys::igAlignTextToFramePadding() };
     text_unformatted(visible(label));
     end_group();
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }
@@ -1077,7 +1124,7 @@ pub fn keybind(ui: &Ui, label: &str, key: &mut i32, description: Option<&str>) -
     if button(ui, &text, kind, [control_width(ui), 0.0]) && !waiting {
         CAPTURING_KEY.set(id);
     }
-    about(ui, description);
+    about_with_title(ui, label, description);
     gap();
     changed
 }

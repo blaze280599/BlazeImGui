@@ -99,6 +99,7 @@ off-screen for a few frames, saves the back buffer, exits). Insert toggles the m
 | `Ui.Toggle("x", ref v, "desc")` | `ui::toggle(ui, "x", &mut v, Some("desc"))`: every widget takes the frame's `&Ui` first |
 | .NET formats `"0 'yd'"` | a closure: `ui::slider(ui, "x", &mut v, 0.0, 1.0, \|v\| format!("{:.0}%", v * 100.0), None)`; `ui::slider_int` for integers |
 | `ref int` indices | `&mut usize` for `combo` / `segmented` |
+| `Ui.About(description, title)` | `ui::about_with_title(ui, title, Some(description))`; `ui::about(ui, Some(description))` without a name |
 | `Icons.ChevronRight` | `icons::CHEVRON_RIGHT` (`&str`; `format!("{}  Save", icons::SAVE)`) |
 | `Fonts.SemiBold` (ImFontPtr) | `fonts::semibold()` (`Font { font, size }`); `fonts::push/pop`, `.px()` for draw lists |
 | `Theme.Colors.Text` | `theme::colors().text`; colors are `[f32; 4]`, `blaze_imgui::hex("#RRGGBB", 1.0)` |

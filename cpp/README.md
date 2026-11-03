@@ -99,7 +99,7 @@ while `Blaze::Ui::IsCapturingKey()` or `io.WantTextInput`. Call `overlay.SetScal
 | `Fonts.Add` in `OnLoadFonts` | `Fonts::Add(weight, size)` any time after `Setup` (1.92 fonts have no fixed size) |
 | `Theme.Changed += ...` | `Theme::OnChanged(callback)` |
 | `Menu.CloseRequested` / `RequestClose()` | `menu.OnClose` / `menu.RequestClose()` (the overlay hides the menu by default) |
-| `Ui.CurrentAbout` (string?) | `Ui::CurrentAbout` (std::string) |
+| `Ui.CurrentAbout` / `CurrentAboutTitle` (string?) | `Ui::CurrentAbout` / `CurrentAboutTitle` (std::string, empty for none) |
 
 C++-only additions: `MenuPage::Scroll = false` gives a page's tabs the whole body without scrolling (for tabs that
 lay out their own child windows); `Menu::Center()` / `WindowCenter()`; the menu is never sized larger than the

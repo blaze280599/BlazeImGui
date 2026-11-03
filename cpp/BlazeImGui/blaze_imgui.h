@@ -191,6 +191,8 @@ namespace Blaze
         inline ImVec2 S(float x, float y) { return ImVec2(x * Scale, y * Scale); }
         /// The text under ABOUT: the last hovered control's description, or the tab's.
         inline std::string CurrentAbout;
+        /// The name of the control CurrentAbout describes, shown above it; empty for the tab's description.
+        inline std::string CurrentAboutTitle;
         /// Descriptions under their controls instead of under ABOUT (the menu sets it each frame).
         inline bool InlineDescriptions = false;
         /// Label column of Readout, as a fraction of the row (at least 110 px).
@@ -206,8 +208,9 @@ namespace Blaze
         void Section(const char* title);
         /// A status line: a muted label and its value in a column to the right; tone colors the value (Neutral: text).
         void Readout(const char* label, const char* value, Tone tone = Tone::Neutral);
-        /// Attaches a description to the previous item or group: shown under ABOUT while hovered.
-        void About(const char* description);
+        /// Attaches a description to the previous item or group: shown under ABOUT while hovered, below `title` (the
+        /// control's name; text after "##" is dropped).
+        void About(const char* description, const char* title = nullptr);
         /// A rounded card that grows to fit its content. Always pair with EndCard.
         void BeginCard(const char* id, const char* title = nullptr, const char* icon = nullptr, float width = 0.0f);
         void EndCard();
@@ -330,7 +333,7 @@ namespace Blaze
 
     /// The menu window, in four columns: an icon rail with the brand mark, the page's title and tabs with the brand
     /// footer, the selected tab's controls, and a status column with live readouts and an ABOUT hint for the hovered
-    /// control. The rail tile and tab marker glide; content fades in when the page or tab changes.
+    /// control. The rail tile and tab highlight glide; content fades in when the page or tab changes.
     class Menu
     {
     public:
@@ -343,7 +346,7 @@ namespace Blaze
         bool Resizable = true;
         float RailWidth = 62.0f;
         float NavWidth = 200.0f;
-        float ContentWidth = 340.0f;      // the controls column; the status column takes the rest
+        float StatusWidth = 280.0f;       // the status column; the controls column takes the rest
         /// Without the status column the controls take the rest and descriptions show under their controls.
         bool ShowStatus = true;
         std::string StatusTitle = "Status";
@@ -386,6 +389,8 @@ namespace Blaze
         int selected = 0;
         float pageProgress = 1.0f;
         float navProgress = 1.0f;
+        float aboutProgress = 1.0f;
+        std::string aboutShownTitle, aboutShownText;
         std::optional<ImVec2> restPosition;
         bool centerPending = false;
         ImVec2 windowCenter = ImVec2(0.0f, 0.0f);

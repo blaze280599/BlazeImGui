@@ -28,6 +28,9 @@ public static partial class Ui
     /// <summary>The text under ABOUT in the status column: the last hovered control's description, or the tab's.</summary>
     public static string? CurrentAbout { get; set; }
 
+    /// <summary>The name of the control <see cref="CurrentAbout"/> describes, shown above it; null for the tab's description.</summary>
+    public static string? CurrentAboutTitle { get; set; }
+
     /// <summary>Draws descriptions under their controls instead of under ABOUT (set by the menu each frame).</summary>
     public static bool InlineDescriptions { get; set; }
 
@@ -38,6 +41,7 @@ public static partial class Ui
     {
         _capturingKey = 0;
         CurrentAbout = null;
+        CurrentAboutTitle = null;
         InlineDescriptions = false;
     }
 
@@ -60,7 +64,7 @@ public static partial class Ui
         if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
         DrawCheck(start, height, Visible(label), value, hovered);
         ImGui.PopID();
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -84,7 +88,7 @@ public static partial class Ui
 
     private static float CheckSize() => MathF.Round(S(14));
 
-    // A square box with a hairline border; when on, a smaller ink square grows in its middle.
+    // A square box with a hairline border; when on, it fills with ink and a check draws itself in.
     private static void DrawCheck(Vector2 start, float height, string text, bool value, bool hovered)
     {
         var on = Anim.Toggle(ImGui.GetID("##on"), value, 20f);
@@ -92,16 +96,34 @@ public static partial class Ui
         var draw = ImGui.GetWindowDrawList();
         var box = CheckSize();
         var min = new Vector2(start.X, MathF.Round(start.Y + (height - box) * .5f));
-        draw.AddRectFilled(min, min + new Vector2(box), Col(Anim.Lerp(P.Surface, P.Elevated, hover)), S(3));
-        draw.AddRect(min, min + new Vector2(box), Col(Anim.Lerp(P.Border, P.TextFaint, hover * .6f)), S(3));
-        if (on > .01f)
-        {
-            var inner = Anim.Lerp(S(2), S(8), Anim.EaseOutCubic(on));
-            var center = min + new Vector2(box * .5f);
-            draw.AddRectFilled(center - new Vector2(inner * .5f), center + new Vector2(inner * .5f), Col(P.Accent, on), S(1.5f));
-        }
+        var ink = Anim.Lerp(P.Accent, P.AccentHover, hover);
+        draw.AddRectFilled(min, min + new Vector2(box), Col(Anim.Lerp(Anim.Lerp(P.Surface, P.Elevated, hover), ink, on)), S(3));
+        draw.AddRect(min, min + new Vector2(box), Col(Anim.Lerp(Anim.Lerp(P.Border, P.TextFaint, hover * .6f), ink, on)), S(3));
+        if (on > .01f) DrawCheckMark(draw, min, box, Anim.EaseOutCubic(on));
         if (text.Length > 0)
             draw.AddText(new Vector2(min.X + box + S(10), start.Y + (height - ImGui.GetTextLineHeight()) * .5f), Col(P.Text), text);
+    }
+
+    // The check's stroke runs from the end of its short leg to the tip of its long one as progress goes 0..1.
+    private static void DrawCheckMark(ImDrawListPtr draw, Vector2 min, float box, float progress)
+    {
+        var a = min + new Vector2(box * .26f, box * .53f);
+        var b = min + new Vector2(box * .43f, box * .70f);
+        var c = min + new Vector2(box * .75f, box * .33f);
+        var shortLeg = Vector2.Distance(a, b);
+        var longLeg = Vector2.Distance(b, c);
+        var length = (shortLeg + longLeg) * progress;
+        var color = Col(P.OnAccent);
+        var thickness = MathF.Max(1.5f, S(1.75f));
+        if (length <= shortLeg)
+        {
+            draw.AddLine(a, Vector2.Lerp(a, b, length / shortLeg), color, thickness);
+            return;
+        }
+        draw.PathLineTo(a);
+        draw.PathLineTo(b);
+        draw.PathLineTo(Vector2.Lerp(b, c, (length - shortLeg) / longLeg));
+        draw.PathStroke(color, ImDrawFlags.None, thickness);
     }
 
     // ---------------------------------------------------------------- sliders
@@ -190,7 +212,7 @@ public static partial class Ui
         ImGui.Dummy(new Vector2(width, height));
         ImGui.EndGroup();
         ImGui.PopID();
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -381,7 +403,7 @@ public static partial class Ui
         ImGui.PopStyleVar(4);
         ImGui.EndGroup();
         ImGui.PopID();
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -393,7 +415,7 @@ public static partial class Ui
         Row(label);
         var changed = ImGui.InputTextWithHint("##" + label, hint, ref value, maxLength);
         ImGui.EndGroup();
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -405,7 +427,7 @@ public static partial class Ui
         Row(label);
         var changed = ImGui.DragFloat("##" + label, ref value, speed, min, max, format);
         ImGui.EndGroup();
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -417,7 +439,7 @@ public static partial class Ui
         Row(label);
         var changed = ImGui.DragInt("##" + label, ref value, speed, min, max);
         ImGui.EndGroup();
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -436,7 +458,7 @@ public static partial class Ui
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(Visible(label));
         ImGui.EndGroup();
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -461,7 +483,7 @@ public static partial class Ui
         var text = waiting ? "press a key…" : Input.KeyName(key);
         if (Button($"{Visible(label)}: {text}##{label}", waiting ? ButtonKind.Primary : ButtonKind.Secondary, new Vector2(ControlWidth, 0)) && !waiting)
             _capturingKey = id;
-        About(description);
+        About(description, label);
         Gap();
         return changed;
     }
@@ -553,12 +575,17 @@ public static partial class Ui
 
     /// <summary>
     /// Attaches a description to the previous item (or group): it shows under ABOUT in the status column while the
-    /// item is hovered, or right under it when the menu has no status column.
+    /// item is hovered, or right under it when the menu has no status column. <paramref name="title"/> names the
+    /// control above the description under ABOUT ("##" and what follows are dropped).
     /// </summary>
-    public static void About(string? description)
+    public static void About(string? description, string? title = null)
     {
         if (description is null) return;
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem)) CurrentAbout = description;
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem))
+        {
+            CurrentAbout = description;
+            CurrentAboutTitle = title is null || Visible(title).Length == 0 ? null : Visible(title);
+        }
         if (!InlineDescriptions) return;
         ImGui.PushFont(Fonts.Small);
         ImGui.PushStyleColor(ImGuiCol.Text, P.TextMuted);

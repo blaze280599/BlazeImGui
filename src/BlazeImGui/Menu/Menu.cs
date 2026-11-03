@@ -65,7 +65,7 @@ public sealed class MenuPage
 /// <summary>
 /// The menu window, in four columns: an icon rail with the brand mark, the page's title and tabs with the brand
 /// footer, the selected tab's controls, and a status column with live readouts and an ABOUT hint for the hovered
-/// control. The rail tile and tab marker glide; content fades in when the page or tab changes.
+/// control. The rail tile and tab highlight glide; content fades in when the page or tab changes.
 /// </summary>
 public sealed class Menu
 {
@@ -73,6 +73,8 @@ public sealed class Menu
     private int _selected;
     private float _pageProgress = 1f;
     private float _navProgress = 1f;
+    private float _aboutProgress = 1f;
+    private (string? Title, string? Text) _aboutShown;
     private Vector2? _restPosition;
 
     /// <summary>Brand name at the bottom of the tab column.</summary>
@@ -89,8 +91,8 @@ public sealed class Menu
     public bool Resizable { get; set; } = true;
     public float RailWidth { get; set; } = 62;
     public float NavWidth { get; set; } = 200;
-    /// <summary>Width of the controls column; the status column takes the rest.</summary>
-    public float ContentWidth { get; set; } = 340;
+    /// <summary>Width of the status column; the controls column takes the rest of the window.</summary>
+    public float StatusWidth { get; set; } = 280;
     /// <summary>
     /// Shows the status column. Without it the controls column takes the rest of the window and control
     /// descriptions are drawn under each control instead of under ABOUT.
@@ -161,7 +163,11 @@ public sealed class Menu
     private MenuPage? Page => _pages.Count > 0 ? _pages[_selected] : null;
     private MenuTab? Tab => Page is { Tabs.Count: > 0 } page ? page.Tabs[page.SelectedTab] : null;
 
-    private void ResetAbout() => Ui.CurrentAbout = Tab?.About;
+    private void ResetAbout()
+    {
+        Ui.CurrentAbout = Tab?.About;
+        Ui.CurrentAboutTitle = null;
+    }
 
     /// <summary>Draws the window. <paramref name="visibility"/> is the open/close animation (0..1).</summary>
     public void Draw(float visibility, bool interactive)
@@ -201,7 +207,7 @@ public sealed class Menu
         _navProgress = Math.Min(1f, _navProgress + Anim.Delta / .26f);
         var rail = RailWidth * scale;
         var nav = NavWidth * scale;
-        var content = ShowStatus ? ContentWidth * scale : size.X - rail - nav;
+        var content = size.X - rail - nav - (ShowStatus ? StatusWidth * scale : 0);
         var draw = ImGui.GetWindowDrawList();
         foreach (var x in ShowStatus ? new[] { rail, rail + nav, rail + nav + content } : new[] { rail, rail + nav })
             draw.AddLine(origin + new Vector2(x, 0), origin + new Vector2(x, size.Y), Theme.U32(p.Border));
@@ -209,7 +215,7 @@ public sealed class Menu
         DrawRail(rail, size.Y);
         DrawNav(rail, nav, size.Y);
         Ui.InlineDescriptions = !ShowStatus;
-        Ui.CurrentAbout ??= Tab?.About;
+        if (Ui.CurrentAbout is null) ResetAbout();
         DrawContent(new Vector2(rail + nav + 1, 0), new Vector2(content - 1, size.Y));
         if (ShowStatus) DrawStatus(new Vector2(rail + nav + content + 1, 0), new Vector2(size.X - rail - nav - content - 1, size.Y));
         ImGui.End();
@@ -234,6 +240,8 @@ public sealed class Menu
     private float TitleY => 17f * Ui.Scale;
     private float BodyTop => 54f * Ui.Scale;
     private float Pad => 18f * Ui.Scale;
+    // The ABOUT text's bottom edge above the window's, level with the brand footer.
+    private float AboutBottom => 30f * Ui.Scale;
 
     private void DrawRail(float width, float height)
     {
@@ -313,10 +321,12 @@ public sealed class Menu
                 draw.AddText(Fonts.Small, Fonts.Small.FontSize, origin + new Vector2(Pad + slide, 59f * scale), Theme.U32(p.TextFaint, t),
                     page.Caption.ToUpperInvariant());
 
-            // Tabs. The selected one is in full text color with a short marker at the column's right edge.
+            // Tabs. The selected one is in full text color on a soft pill that glides beneath the labels.
             var y = 102f * scale;
             var row = 29f * scale;
             var selectedY = y;
+            draw.ChannelsSplit(2);
+            draw.ChannelsSetCurrent(1);
             for (var i = 0; i < page.Tabs.Count; i++)
             {
                 var tab = page.Tabs[i];
@@ -328,21 +338,21 @@ public sealed class Menu
                 var hover = Anim.Toggle(ImGui.GetID("##hover"), hovered, 18f);
                 var active = Anim.Toggle(ImGui.GetID("##active"), i == page.SelectedTab, 16f);
                 ImGui.PopID();
-                var color = Anim.Lerp(Anim.Lerp(p.TextFaint, p.TextMuted, hover), p.Text, active);
+                var color = Anim.Lerp(p.TextMuted, p.Text, MathF.Max(hover, active));
                 var textY = y + (row - ImGui.GetTextLineHeight()) * .5f;
                 draw.AddText(origin + new Vector2(Pad + slide, textY), Theme.U32(color, t), tab.Title);
                 if (i == page.SelectedTab) selectedY = y;
                 y += row;
             }
+            draw.ChannelsSetCurrent(0);
             if (page.Tabs.Count > 0)
             {
-                // Keyed per page so switching pages snaps the marker instead of gliding across pages.
-                var markerY = Anim.To(ImGui.GetID($"##tabmarker{_selected}"), selectedY, 18f);
-                var markerHeight = 11f * scale;
-                var mx = origin.X + width - 15f * scale;
-                var my = origin.Y + markerY + (row - markerHeight) * .5f;
-                draw.AddRectFilled(new Vector2(mx, my), new Vector2(mx + 2f * scale, my + markerHeight), Theme.U32(p.Text, t), scale);
+                // Keyed per page so switching pages snaps the pill instead of gliding across pages.
+                var pillY = Anim.To(ImGui.GetID($"##tabpill{_selected}"), selectedY, 18f);
+                var min = origin + new Vector2(Pad * .5f + slide, pillY);
+                draw.AddRectFilled(min, min + new Vector2(width - Pad, row), Theme.U32(p.Field, t), 6f * scale);
             }
+            draw.ChannelsMerge();
         }
 
         // Footer: brand name, subtitle and version on one baseline, level with the bottom rail icon.
@@ -399,26 +409,65 @@ public sealed class Menu
         var origin = ImGui.GetWindowPos() + position;
         draw.AddText(Fonts.Title, Fonts.Title.FontSize, origin + new Vector2(Pad, TitleY), Theme.U32(p.Text), StatusTitle);
 
-        // Live readouts above, the ABOUT hint for the hovered control anchored near the bottom.
-        var aboutTop = size.Y - 168f * scale;
+        // The ABOUT hint for the hovered control sits on the bottom edge, as tall as its text; the live readouts fill
+        // the space above it.
+        var about = Ui.CurrentAbout;
+        var title = Ui.CurrentAboutTitle;
+        var wrap = size.X - Pad * 2;
+        var captionGap = 8f * scale;
+        var titleGap = 3f * scale;
+        var aboutTop = size.Y;
+        if (about is not null)
+        {
+            ImGui.PushFont(Fonts.Small);
+            var height = ImGui.GetTextLineHeight() + captionGap + ImGui.CalcTextSize(about, wrap).Y;
+            ImGui.PopFont();
+            if (title is not null)
+            {
+                ImGui.PushFont(Fonts.Medium);
+                height += ImGui.CalcTextSize(title, wrap).Y + titleGap;
+                ImGui.PopFont();
+            }
+            aboutTop = size.Y - AboutBottom - height;
+        }
+
+        var readoutsBottom = about is null ? size.Y - 4f * scale : aboutTop - 16f * scale;
         ImGui.SetCursorPos(position + new Vector2(0, BodyTop));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(Pad, 6f * scale));
-        ImGui.BeginChild("##status", new Vector2(size.X, aboutTop - BodyTop - 8f * scale), ImGuiChildFlags.AlwaysUseWindowPadding,
+        ImGui.BeginChild("##status", new Vector2(size.X, MathF.Max(1, readoutsBottom - BodyTop)), ImGuiChildFlags.AlwaysUseWindowPadding,
             ImGuiWindowFlags.NoBackground);
         ImGui.PopStyleVar();
         (Page?.Status ?? Status)?.Invoke();
         ImGui.EndChild();
 
-        if (Ui.CurrentAbout is not { } about) return;
+        if (about is null) return;
+        // A new description fades in, as content does after a tab switch.
+        if (_aboutShown != (title, about))
+        {
+            _aboutShown = (title, about);
+            _aboutProgress = 0f;
+        }
+        _aboutProgress = Math.Min(1f, _aboutProgress + Anim.Delta / .2f);
         ImGui.SetCursorPos(position + new Vector2(Pad, aboutTop));
         ImGui.BeginGroup();
-        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + size.X - Pad * 2.5f);
-        Ui.Caption(AboutTitle);
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, Vector2.Zero);
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + wrap);
         ImGui.PushFont(Fonts.Small);
-        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(0, 0));
-        Ui.Text(about, p.TextMuted);
-        ImGui.PopStyleVar();
+        Ui.Text(AboutTitle.ToUpperInvariant(), p.TextFaint);
         ImGui.PopFont();
+        ImGui.Dummy(new Vector2(0, captionGap));
+        ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * Anim.EaseOutCubic(_aboutProgress));
+        if (title is not null)
+        {
+            ImGui.PushFont(Fonts.Medium);
+            Ui.Text(title, p.Text);
+            ImGui.PopFont();
+            ImGui.Dummy(new Vector2(0, titleGap));
+        }
+        ImGui.PushFont(Fonts.Small);
+        Ui.Text(about, p.TextMuted);
+        ImGui.PopFont();
+        ImGui.PopStyleVar(2);
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
     }

@@ -45,13 +45,26 @@ impl Font {
     }
 
     pub fn calc_text_size(&self, text: &str) -> V2 {
+        self.calc_text_size_wrapped(text, 0.0)
+    }
+
+    /// The size of `text` wrapped at `wrap_width` pixels (0: no wrapping).
+    pub fn calc_text_size_wrapped(&self, text: &str, wrap_width: f32) -> V2 {
         if self.font.is_null() {
             return V2::ZERO;
         }
         let range = text.as_bytes().as_ptr_range();
         unsafe {
-            sys::ImFont_CalcTextSizeA(self.font, self.px(), f32::MAX, 0.0, range.start.cast(), range.end.cast(), std::ptr::null_mut())
-                .into()
+            sys::ImFont_CalcTextSizeA(
+                self.font,
+                self.px(),
+                f32::MAX,
+                wrap_width,
+                range.start.cast(),
+                range.end.cast(),
+                std::ptr::null_mut(),
+            )
+            .into()
         }
     }
 }
