@@ -38,7 +38,7 @@ tools\pack.ps1 -Into C:\code\MyTool\packages
 ```
 
 ```xml
-<PackageReference Include="BlazeImGui.Overlay" Version="1.1.0" />
+<PackageReference Include="BlazeImGui.Overlay" Version="1.2.0" />
 ```
 
 ```csharp

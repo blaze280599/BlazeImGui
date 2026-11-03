@@ -91,12 +91,12 @@ or use a git submodule unless the user asks.
    ```xml
    <ItemGroup>
      <!-- BlazeOverlay + the menu, theme, fonts and widgets. The packages are in packages\ (see nuget.config). -->
-     <PackageReference Include="BlazeImGui.Overlay" Version="1.1.0" />
+     <PackageReference Include="BlazeImGui.Overlay" Version="1.2.0" />
    </ItemGroup>
    ```
 
 4. **Commit the packages.** Many `.gitignore` templates (including Visual Studio's) ignore `*.nupkg` and
-   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.1.0.nupkg`; if it prints a rule, add these
+   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.2.0.nupkg`; if it prints a rule, add these
    lines to the end of the target's `.gitignore` (adjust the folder if the feed is not at the root):
 
    ```gitignore

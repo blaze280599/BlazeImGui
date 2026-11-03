@@ -2,7 +2,7 @@
   <!-- Shared by the BlazeImGui and BlazeImGui.Overlay packages: `tools\pack.ps1` builds both at this version.
        Bump Version for every release (NuGet caches packages by version). -->
   <PropertyGroup>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>zack polc</Authors>
     <PackageTags>imgui;overlay;ui;theme</PackageTags>
     <RepositoryUrl>https://github.com/blaze280599/BlazeImGui</RepositoryUrl>

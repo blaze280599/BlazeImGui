@@ -25,7 +25,7 @@ the project holds one line instead of a copy, and `Cargo.lock` records the exact
 
 ```toml
 [dependencies]
-blaze-imgui = { git = "https://github.com/blaze280599/BlazeImGui", tag = "rust-v0.1.0" }
+blaze-imgui = { git = "https://github.com/blaze280599/BlazeImGui", tag = "rust-v0.2.0" }
 ```
 
 Cargo finds the crate inside the repository by its name. Use `dear-imgui-rs` from the re-export

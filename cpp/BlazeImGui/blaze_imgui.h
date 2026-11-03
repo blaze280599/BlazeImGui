@@ -24,7 +24,7 @@
 #include "blaze_icons.h"
 
 // Package version (tools/pack-cpp.ps1 names the package after it). Bump it for every release.
-#define BLAZE_IMGUI_VERSION "1.0.0"
+#define BLAZE_IMGUI_VERSION "1.1.0"
 
 namespace Blaze
 {
