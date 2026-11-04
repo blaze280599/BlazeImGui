@@ -326,7 +326,7 @@ the control is hovered. Labels follow ImGui ID rules — text after `##` is hidd
 |---|---|
 | `Ui.Toggle(label, ref bool, description?)` | checkbox row, whole row clickable — preferred for on/off settings |
 | `Ui.Checkbox(label, ref bool)` | compact checkbox sized to its label, for several on one line |
-| `Ui.Slider(label, ref float, min, max, format = "0.0", description?)` | value box + track with grip; .NET format: `"0"`, `"0%"` (×100), `"0.00"`; the value snaps to the precision the format shows; on tracks with under 2 px per unit, drags snap to round 1-2-5 steps (10 yd for 10 - 500 yd), and Left/Right step one shown unit while hovered or dragged |
+| `Ui.Slider(label, ref float, min, max, format = "0.0", description?)` | value box + track with grip; .NET format: `"0"`, `"0%"` (×100), `"0.00"`; the value snaps to the precision the format shows; on tracks with under 2 px per unit, drags snap to round 1-2-5 steps (10 yd for 10 - 500 yd), and Left/Right step one shown unit while hovered or dragged; clicking the value box types an exact value (Enter or a click elsewhere applies, Escape cancels) |
 | `Ui.Slider(label, ref int, min, max, format = "0", description?)` | snaps to integers |
 | `Ui.Button(label, ButtonKind = Secondary, size = default)` | `Secondary` outlined, `Primary` ink-filled, `Ghost`, `Danger`; `size.X < 0` = full width; settings buttons look best at `new Vector2(Ui.ControlWidth, 0)` |
 | `Ui.IconButton(Icons.X, "##id", tooltip?, size = 0)` | square borderless button |

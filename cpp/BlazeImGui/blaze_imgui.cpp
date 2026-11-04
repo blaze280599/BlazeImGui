@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cfloat>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -982,6 +983,46 @@ bool Blaze::Ui::Checkbox(const char* label, bool* value)
 
 namespace
 {
+    // The slider whose value box is being typed into (its box ID, 0 for none), the text typed so far, whether the field
+    // has taken keyboard focus yet, how many frames it has waited for it, and whether Escape cancelled the edit.
+    ImGuiID editingSlider = 0;
+    char editText[32] = {};
+    bool editFocused = false, editCancelled = false;
+    int editWait = 0;
+
+    // The first number in text ("200" in "200 yd", "-1.50" in "x-1.50"), with '.' as the decimal point and ',' grouping
+    // digits (dropped from the result).
+    std::optional<std::string> FirstNumberText(const std::string& text)
+    {
+        auto digit = [&](size_t i) { return i < text.size() && text[i] >= '0' && text[i] <= '9'; };
+        for (size_t i = 0; i < text.size(); ++i)
+        {
+            size_t j = i;
+            if (text[j] == '-' || text[j] == '+')
+                ++j;
+            if (!digit(j) && !(j < text.size() && text[j] == '.' && digit(j + 1)))
+                continue;
+            std::string number = text[i] == '-' ? "-" : "";
+            for (; digit(j) || (j < text.size() && text[j] == ','); ++j)
+                if (text[j] != ',')
+                    number += text[j];
+            if (j < text.size() && text[j] == '.')
+                for (number += text[j++]; digit(j); ++j)
+                    number += text[j];
+            return number;
+        }
+        return std::nullopt;
+    }
+
+    std::optional<double> FirstNumber(const std::string& text)
+    {
+        const std::optional<std::string> number = FirstNumberText(text);
+        double value = 0.0;
+        if (!number || std::from_chars(number->data(), number->data() + number->size(), value).ec != std::errc())
+            return std::nullopt;
+        return value;
+    }
+
     // A slider's value as shown: printf with a float, or with an int for integer sliders.
     std::string SliderText(const char* format, bool integer, float value)
     {
@@ -1076,9 +1117,71 @@ namespace
         const std::string shown = SliderText(format, integer, *value);
         const ImVec2 textSize = ImGui::CalcTextSize(shown.c_str());
         const float boxWidth = std::max(std::max(S(48), SliderTextWidth(format, integer, min, max) + S(20)), textSize.x + S(20));
-        draw->AddRectFilled(start, start + ImVec2(boxWidth, height), Col(P().Surface), S(4));
-        draw->AddRect(start, start + ImVec2(boxWidth, height), Col(P().Border), S(4));
-        draw->AddText(start + (ImVec2(boxWidth, height) - textSize) * 0.5f, Col(P().Text), shown.c_str());
+        const ImVec2 box(boxWidth, height);
+        bool changed = false;
+        ImGui::SetCursorScreenPos(start);
+        const ImGuiID boxId = ImGui::GetID("##value");
+        if (editingSlider == boxId)
+        {
+            // Typing a value: the number alone in a field the size of the box, drawn as a focused input.
+            draw->AddRectFilled(start, start + box, Col(P().Elevated), S(4));
+            draw->AddRect(start, start + box, Col(P().Accent, 0.5f), S(4));
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(S(8), (height - ImGui::GetFontSize()) * 0.5f));
+            ImGui::SetNextItemWidth(boxWidth);
+            if (!editFocused)
+                ImGui::SetKeyboardFocusHere();
+            ImGui::InputText("##edit", editText, sizeof(editText), ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemActive())
+                editFocused = true;
+            else if (!editFocused && ++editWait > 3)
+                editingSlider = 0;
+            // Enter or a click elsewhere applies the typed number; Escape keeps the old value.
+            if (editFocused && ImGui::IsKeyPressed(ImGuiKey_Escape))
+                editCancelled = true;
+            if (editFocused && ImGui::IsItemDeactivated())
+            {
+                editingSlider = 0;
+                const std::optional<double> typed = FirstNumber(editText);
+                if (!editCancelled && typed)
+                {
+                    const std::optional<double> shownThousand = FirstNumber(SliderText(format, integer, 1000.0f));
+                    const double scale = shownThousand && *shownThousand != 0.0 ? *shownThousand / 1000.0 : 1.0;
+                    const int decimals = step > 0.0f ? -1 : ShownDecimals(format, min, max);
+                    float next = static_cast<float>(*typed / scale);
+                    if (step > 0.0f)
+                        next = std::round(next / step) * step;
+                    else if (decimals >= 0)
+                        next = RoundTo(next, decimals);
+                    next = std::clamp(next, min, max);
+                    if (next != *value)
+                    {
+                        *value = next;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        else
+        {
+            draw->AddRectFilled(start, start + box, Col(P().Surface), S(4));
+            draw->AddRect(start, start + box, Col(P().Border), S(4));
+            draw->AddText(start + (box - textSize) * 0.5f, Col(P().Text), shown.c_str());
+            // Clicking the box types a value instead: the shown number without its literals ("200", not "200 yd"),
+            // selected so typing replaces it.
+            if (ImGui::InvisibleButton("##value", box))
+            {
+                editingSlider = boxId;
+                snprintf(editText, sizeof(editText), "%s", FirstNumberText(shown).value_or("").c_str());
+                editFocused = editCancelled = false;
+                editWait = 0;
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
+        }
 
         // the track: a thin rail, an ink fill up to a small grip
         const ImVec2 gripSize = Ui::S(22, 15);
@@ -1093,7 +1196,6 @@ namespace
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
         const float left = trackStart.x + gripSize.x * 0.5f;
         const float right = trackStart.x + trackWidth - gripSize.x * 0.5f;
-        bool changed = false;
         if ((active || hovered) && max > min)
         {
             const ImGuiIO& io = ImGui::GetIO();

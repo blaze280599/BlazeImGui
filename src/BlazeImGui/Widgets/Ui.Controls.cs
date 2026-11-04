@@ -36,10 +36,18 @@ public static partial class Ui
 
     private static uint _capturingKey;
 
-    /// <summary>Ends a pending keybind capture and clears the ABOUT text; call it when the host replaces its ImGui context.</summary>
+    // The slider whose value box is being typed into (its box ID, 0 for none), the text typed so far, whether the field
+    // has taken keyboard focus yet, how many frames it has waited for it, and whether Escape cancelled the edit.
+    private static uint _editingSlider;
+    private static string _editText = "";
+    private static bool _editFocused, _editCancelled;
+    private static int _editWait;
+
+    /// <summary>Ends a pending keybind capture or slider edit and clears the ABOUT text; call it when the host replaces its ImGui context.</summary>
     public static void ResetState()
     {
         _capturingKey = 0;
+        _editingSlider = 0;
         CurrentAbout = null;
         CurrentAboutTitle = null;
         InlineDescriptions = false;
@@ -132,7 +140,9 @@ public static partial class Ui
     /// A labeled slider: the label above, the value in a box on the left and the track to its right.
     /// <paramref name="format"/> is a .NET format string; the value snaps to the precision it shows ("0.00" stores
     /// 1.00, never 1.0042). When the track has under 2 px per shown unit, drags snap to round 1-2-5 steps (10 yd on a
-    /// 10 - 500 yd slider); Left/Right still step by one shown unit while the slider is hovered or dragged.
+    /// 10 - 500 yd slider); Left/Right still step by one shown unit while the slider is hovered or dragged. Clicking the
+    /// value box types an exact value: Enter or a click elsewhere applies it, Escape cancels. Returns true on the frame
+    /// the value changes (a typed value on the frame it is applied).
     /// </summary>
     public static bool Slider(string label, ref float value, float min, float max, string format = "0.0", string? description = null)
         => SliderCore(label, ref value, min, max, 0f, format, description);
@@ -161,9 +171,58 @@ public static partial class Ui
         var shown = value.ToString(format, CultureInfo.InvariantCulture);
         var textSize = ImGui.CalcTextSize(shown);
         var boxWidth = MathF.Max(MathF.Max(S(48), SliderTextWidth(format, min, max) + S(20)), textSize.X + S(20));
-        draw.AddRectFilled(start, start + new Vector2(boxWidth, height), Col(P.Surface), S(4));
-        draw.AddRect(start, start + new Vector2(boxWidth, height), Col(P.Border), S(4));
-        draw.AddText(start + (new Vector2(boxWidth, height) - textSize) * .5f, Col(P.Text), shown);
+        var box = new Vector2(boxWidth, height);
+        var changed = false;
+        ImGui.SetCursorScreenPos(start);
+        var boxId = ImGui.GetID("##value");
+        if (_editingSlider == boxId)
+        {
+            // Typing a value: the number alone in a field the size of the box, drawn as a focused input.
+            draw.AddRectFilled(start, start + box, Col(P.Elevated), S(4));
+            draw.AddRect(start, start + box, Col(P.Accent, .5f), S(4));
+            ImGui.PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero);
+            ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 0f);
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(S(8), (height - ImGui.GetFontSize()) * .5f));
+            ImGui.SetNextItemWidth(boxWidth);
+            if (!_editFocused) ImGui.SetKeyboardFocusHere();
+            ImGui.InputText("##edit", ref _editText, 32, ImGuiInputTextFlags.AutoSelectAll);
+            ImGui.PopStyleVar(2);
+            ImGui.PopStyleColor();
+            if (ImGui.IsItemActive()) _editFocused = true;
+            else if (!_editFocused && ++_editWait > 3) _editingSlider = 0;
+            // Enter or a click elsewhere applies the typed number; Escape keeps the old value.
+            if (_editFocused && ImGui.IsKeyPressed(ImGuiKey.Escape)) _editCancelled = true;
+            if (_editFocused && ImGui.IsItemDeactivated())
+            {
+                _editingSlider = 0;
+                if (!_editCancelled && FirstNumber(_editText) is { } typed)
+                {
+                    var scale = FirstNumber(1000f.ToString(format, CultureInfo.InvariantCulture)) is { } shownThousand and not 0 ? shownThousand / 1000 : 1;
+                    var decimals = step > 0 ? -1 : ShownDecimals(format, min, max);
+                    var next = (float)(typed / scale);
+                    if (step > 0) next = MathF.Round(next / step) * step;
+                    else if (decimals >= 0) next = (float)Math.Round(next, decimals);
+                    next = Math.Clamp(next, min, max);
+                    if (next != value) { value = next; changed = true; }
+                }
+            }
+        }
+        else
+        {
+            draw.AddRectFilled(start, start + box, Col(P.Surface), S(4));
+            draw.AddRect(start, start + box, Col(P.Border), S(4));
+            draw.AddText(start + (box - textSize) * .5f, Col(P.Text), shown);
+            // Clicking the box types a value instead: the shown number without its literals ("200", not "200 yd"),
+            // selected so typing replaces it.
+            if (ImGui.InvisibleButton("##value", box))
+            {
+                _editingSlider = boxId;
+                _editText = FirstNumberText(shown) ?? "";
+                _editFocused = _editCancelled = false;
+                _editWait = 0;
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetMouseCursor(ImGuiMouseCursor.TextInput);
+        }
 
         // The track: a thin rail, an ink fill up to a small grip.
         var gripSize = new Vector2(S(22), S(15));
@@ -177,7 +236,6 @@ public static partial class Ui
         if (hovered || active) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
         var left = trackStart.X + gripSize.X * .5f;
         var right = trackStart.X + trackWidth - gripSize.X * .5f;
-        var changed = false;
         if ((active || hovered) && max > min)
         {
             var io = ImGui.GetIO();
@@ -261,6 +319,30 @@ public static partial class Ui
     }
 
     private static readonly string[] DigitText = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+    // The first number in text ("200" in "200 yd", "-1.50" in "x-1.50"), with '.' as the decimal point and ',' grouping
+    // digits (dropped from the result); null when there is none.
+    private static string? FirstNumberText(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var j = i;
+            if (text[j] is '-' or '+') j++;
+            if (j >= text.Length || !(char.IsAsciiDigit(text[j]) || text[j] == '.' && j + 1 < text.Length && char.IsAsciiDigit(text[j + 1])))
+                continue;
+            var number = new System.Text.StringBuilder(text[i] == '-' ? "-" : "");
+            for (; j < text.Length && (char.IsAsciiDigit(text[j]) || text[j] == ','); j++)
+                if (text[j] != ',') number.Append(text[j]);
+            if (j < text.Length && text[j] == '.')
+                for (number.Append('.'), j++; j < text.Length && char.IsAsciiDigit(text[j]); j++) number.Append(text[j]);
+            return number.ToString();
+        }
+        return null;
+    }
+
+    private static double? FirstNumber(string text)
+        => FirstNumberText(text) is { } number && double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            ? value : null;
 
     // The width of the widest text the slider can show: min and max as shown, with every digit drawn as the widest one.
     private static float SliderTextWidth(string format, float min, float max)

@@ -238,7 +238,8 @@ namespace Blaze
         bool Checkbox(const char* label, bool* value);
         /// The label above, the value in a box and the track beside it. format is printf-style ("%.1f", "%.0f%%"); the value
         /// snaps to the precision it shows. When the track has under 2 px per shown unit, drags snap to round 1-2-5 steps;
-        /// Left/Right still step by one shown unit while the slider is hovered or dragged.
+        /// Left/Right still step by one shown unit while the slider is hovered or dragged. Clicking the value box types an
+        /// exact value: Enter or a click elsewhere applies it (that frame returns true), Escape cancels.
         bool Slider(const char* label, float* value, float min, float max, const char* format = "%.1f", const char* description = nullptr);
         bool Slider(const char* label, int* value, int min, int max, const char* format = "%d", const char* description = nullptr);
         /// Outlined (Secondary) or ink-filled (Primary). size.x: 0 fits the text, < 0 fills the row. ICON_LC_SAVE "  Save".

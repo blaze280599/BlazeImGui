@@ -56,7 +56,7 @@ internal sealed class DemoOverlay : BlazeOverlay
 
         var controls = Menu.AddPage("Controls", Icons.Crosshair, "Widgets");
         controls.AddTab("Toggles", DrawToggles, "Checkbox rows for settings, compact checkboxes for several on one line.");
-        controls.AddTab("Sliders", DrawSliders, "The value sits in the box, drag anywhere on the track. Left/Right step by one unit.");
+        controls.AddTab("Sliders", DrawSliders, "Drag anywhere on the track, or click the value box to type a number. Left/Right step by one unit.");
         controls.AddTab("Buttons", DrawButtons, "Outlined by default; primary is filled with the ink color.");
         controls.AddTab("Keybinds", DrawKeybinds, "Click, then press a key. Esc cancels, Backspace clears.");
 

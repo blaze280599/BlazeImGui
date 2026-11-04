@@ -47,6 +47,18 @@ thread_local! {
     static INLINE_DESCRIPTIONS: Cell<bool> = const { Cell::new(false) };
     static READOUT_SPLIT: Cell<f32> = const { Cell::new(0.42) };
     static CAPTURING_KEY: Cell<u32> = const { Cell::new(0) };
+    static SLIDER_EDIT: RefCell<SliderEdit> =
+        const { RefCell::new(SliderEdit { slider: 0, text: [0; 32], focused: false, cancelled: false, wait: 0 }) };
+}
+
+// The slider whose value box is being typed into (its box ID, 0 for none), the text typed so far, whether the field has
+// taken keyboard focus yet, how many frames it has waited for it, and whether Escape cancelled the edit.
+struct SliderEdit {
+    slider: u32,
+    text: [u8; 32],
+    focused: bool,
+    cancelled: bool,
+    wait: i32,
 }
 
 /// UI scale (sizes; fonts follow through `style.FontScaleMain`). Set it with `Overlay::set_scale`.
@@ -714,6 +726,39 @@ pub fn checkbox(_ui: &Ui, label: &str, value: &mut bool) -> bool {
     changed
 }
 
+// The first number in text ("200" in "200 yd", "-1.50" in "x-1.50"), with '.' as the decimal point and ',' grouping
+// digits (dropped from the result).
+fn first_number_text(text: &str) -> Option<String> {
+    let b = text.as_bytes();
+    let digit = |i: usize| b.get(i).is_some_and(u8::is_ascii_digit);
+    (0..b.len()).find_map(|i| {
+        let mut j = if matches!(b[i], b'-' | b'+') { i + 1 } else { i };
+        if !digit(j) && !(b.get(j) == Some(&b'.') && digit(j + 1)) {
+            return None;
+        }
+        let mut number = String::from(if b[i] == b'-' { "-" } else { "" });
+        while digit(j) || b.get(j) == Some(&b',') {
+            if b[j] != b',' {
+                number.push(b[j] as char);
+            }
+            j += 1;
+        }
+        if b.get(j) == Some(&b'.') {
+            number.push('.');
+            j += 1;
+            while digit(j) {
+                number.push(b[j] as char);
+                j += 1;
+            }
+        }
+        Some(number)
+    })
+}
+
+fn first_number(text: &str) -> Option<f64> {
+    first_number_text(text)?.parse().ok()
+}
+
 fn round_to(value: f32, decimals: i32) -> f32 {
     let scale = 10f64.powi(decimals);
     ((value as f64 * scale).round() / scale) as f32
@@ -786,9 +831,86 @@ fn slider_core(
     let shown = format(*value);
     let text_size = calc_text_size(&shown);
     let box_width = s(48.0).max(slider_text_width(format, min, max) + s(20.0)).max(text_size.x + s(20.0));
-    draw.rect_filled(start, start + v2(box_width, height), col(p.surface, 1.0), s(4.0));
-    draw.rect(start, start + v2(box_width, height), col(p.border, 1.0), s(4.0));
-    draw.text(start + (v2(box_width, height) - text_size) * 0.5, col(p.text, 1.0), &shown);
+    let bx = v2(box_width, height);
+    let mut changed = false;
+    set_cursor_screen_pos(start);
+    let box_id = get_id(c"##value");
+    if SLIDER_EDIT.with_borrow(|edit| edit.slider) == box_id {
+        // Typing a value: the number alone in a field the size of the box, drawn as a focused input.
+        draw.rect_filled(start, start + bx, col(p.elevated, 1.0), s(4.0));
+        draw.rect(start, start + bx, col(p.accent, 0.5), s(4.0));
+        push_style_color(sys::ImGuiCol_FrameBg, [0.0; 4]);
+        push_style_var(sys::ImGuiStyleVar_FrameBorderSize, 0.0);
+        push_style_var_v2(sys::ImGuiStyleVar_FramePadding, v2(s(8.0), (height - unsafe { sys::igGetFontSize() }) * 0.5));
+        let typed = SLIDER_EDIT.with_borrow_mut(|edit| unsafe {
+            sys::igSetNextItemWidth(box_width);
+            if !edit.focused {
+                sys::igSetKeyboardFocusHere(0);
+            }
+            let flags = sys::ImGuiInputTextFlags_AutoSelectAll as _;
+            sys::igInputText(c"##edit".as_ptr(), edit.text.as_mut_ptr().cast(), edit.text.len(), flags, None, std::ptr::null_mut());
+            if is_item_active() {
+                edit.focused = true;
+            } else if !edit.focused {
+                edit.wait += 1;
+                if edit.wait > 3 {
+                    edit.slider = 0;
+                }
+            }
+            // Enter or a click elsewhere applies the typed number; Escape keeps the old value.
+            if edit.focused && sys::igIsKeyPressed_Bool(sys::ImGuiKey_Escape, true) {
+                edit.cancelled = true;
+            }
+            if !(edit.focused && sys::igIsItemDeactivated()) {
+                return None;
+            }
+            edit.slider = 0;
+            let end = edit.text.iter().position(|&b| b == 0).unwrap_or(edit.text.len());
+            if edit.cancelled {
+                None
+            } else {
+                first_number(&String::from_utf8_lossy(&edit.text[..end]))
+            }
+        });
+        pop_style_var(2);
+        pop_style_color(1);
+        if let Some(typed) = typed {
+            let scale = first_number(&format(1000.0)).filter(|&n| n != 0.0).map_or(1.0, |n| n / 1000.0);
+            let decimals = if step > 0.0 { None } else { shown_decimals(format, min, max) };
+            let mut next = (typed / scale) as f32;
+            if step > 0.0 {
+                next = (next / step).round() * step;
+            } else if let Some(decimals) = decimals {
+                next = round_to(next, decimals);
+            }
+            next = next.clamp(min, max);
+            if next != *value {
+                *value = next;
+                changed = true;
+            }
+        }
+    } else {
+        draw.rect_filled(start, start + bx, col(p.surface, 1.0), s(4.0));
+        draw.rect(start, start + bx, col(p.border, 1.0), s(4.0));
+        draw.text(start + (bx - text_size) * 0.5, col(p.text, 1.0), &shown);
+        // Clicking the box types a value instead: the shown number without its literals ("200", not "200 yd"), selected
+        // so typing replaces it.
+        if invisible_button("##value", bx) {
+            let number = first_number_text(&shown).unwrap_or_default();
+            SLIDER_EDIT.with_borrow_mut(|edit| {
+                let len = number.len().min(edit.text.len() - 1);
+                edit.text = [0; 32];
+                edit.text[..len].copy_from_slice(&number.as_bytes()[..len]);
+                edit.slider = box_id;
+                edit.focused = false;
+                edit.cancelled = false;
+                edit.wait = 0;
+            });
+        }
+        if is_item_hovered() {
+            unsafe { sys::igSetMouseCursor(sys::ImGuiMouseCursor_TextInput as _) };
+        }
+    }
 
     // the track: a thin rail, an ink fill up to a small grip
     let grip = s2(22.0, 15.0);
@@ -804,7 +926,6 @@ fn slider_core(
     }
     let left = track_start.x + grip.x * 0.5;
     let right = track_start.x + track_width - grip.x * 0.5;
-    let mut changed = false;
     if (active || hovered) && max > min {
         let io = unsafe { &*sys::igGetIO_Nil() };
         let storage = unsafe { sys::igGetStateStorage() };
@@ -903,7 +1024,8 @@ fn slider_core(
 
 /// The label above, the value in a box and the track beside it. `format` renders the value: `|v| format!("{v:.2}")`;
 /// the value snaps to the precision it shows. When the track has under 2 px per shown unit, drags snap to round 1-2-5
-/// steps; Left/Right still step by one shown unit while the slider is hovered or dragged.
+/// steps; Left/Right still step by one shown unit while the slider is hovered or dragged. Clicking the value box types
+/// an exact value: Enter or a click elsewhere applies it (that frame returns true), Escape cancels.
 pub fn slider(
     ui: &Ui,
     label: &str,
