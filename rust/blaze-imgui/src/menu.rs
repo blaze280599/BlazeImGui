@@ -121,6 +121,11 @@ pub struct Menu<S> {
     about_progress: f32,
     about_shown: (String, String),
     rest_position: Option<V2>,
+    // Where the user put the window, where it was last frame, and the viewport work area it was last fitted to
+    // (each a position and a size).
+    wanted: Option<(V2, V2)>,
+    placed: Option<(V2, V2)>,
+    work_area: Option<(V2, V2)>,
     center_pending: bool,
     window_center: V2,
     close_requested: bool,
@@ -150,6 +155,9 @@ impl<S> Default for Menu<S> {
             about_progress: 1.0,
             about_shown: (String::new(), String::new()),
             rest_position: None,
+            wanted: None,
+            placed: None,
+            work_area: None,
             center_pending: false,
             window_center: V2::ZERO,
             close_requested: false,
@@ -172,6 +180,15 @@ fn body_top() -> f32 {
 // The ABOUT text's bottom edge above the window's, level with the brand footer.
 fn about_bottom() -> f32 {
     30.0 * ui::scale()
+}
+
+// A span already inside lo..hi stays put; otherwise it moves in, a margin from the edge when there is room.
+fn keep_inside(pos: f32, size: f32, lo: f32, hi: f32, margin: f32) -> f32 {
+    if pos >= lo && pos + size <= hi {
+        return pos;
+    }
+    let margin = ((hi - lo - size) * 0.5).clamp(0.0, margin);
+    (lo + margin).max(pos.min(hi - size - margin))
 }
 
 // A soft shadow under the window, drawn behind every ImGui window.
@@ -303,6 +320,28 @@ impl<S> Menu<S> {
             sys::igSetNextWindowSizeConstraints(min_size.into(), max_size.into(), None, std::ptr::null_mut());
         }
 
+        // imgui.ini may restore a place saved for another screen size, and the screen can change size at any time:
+        // the menu then goes back to where the user put it, as far as it fits, instead of hanging off the edge or
+        // staying shrunk after a small window.
+        let mut refit = false;
+        if let Some((wanted_pos, wanted_size)) = self.wanted {
+            if self.work_area != Some((work_pos, work_size)) {
+                refit = true;
+                self.work_area = Some((work_pos, work_size));
+                let fitted = v2(
+                    wanted_size.x.clamp(min_size.x, max_size.x),
+                    wanted_size.y.clamp(min_size.y, max_size.y),
+                );
+                let end = work_pos + work_size;
+                let margin = 12.0 * scale;
+                self.rest_position = Some(v2(
+                    keep_inside(wanted_pos.x, fitted.x, work_pos.x, end.x, margin),
+                    keep_inside(wanted_pos.y, fitted.y, work_pos.y, end.y, margin),
+                ));
+                unsafe { sys::igSetNextWindowSize(fitted.into(), sys::ImGuiCond_Always as _) };
+            }
+        }
+
         // The window rises slightly while it fades in; once open the user can drag it freely.
         let rise = (1.0 - anim::ease_out_cubic(visibility)) * 14.0 * scale;
         let center = work_pos + work_size * 0.5;
@@ -311,7 +350,7 @@ impl<S> Menu<S> {
                 sys::igSetNextWindowPos(center.into(), sys::ImGuiCond_Always as _, v2(0.5, 0.5).into());
                 self.rest_position = None;
                 self.center_pending = false;
-            } else if let (Some(rest), true) = (self.rest_position, visibility < 1.0) {
+            } else if let (Some(rest), true) = (self.rest_position, visibility < 1.0 || refit) {
                 sys::igSetNextWindowPos((rest + v2(0.0, rise)).into(), sys::ImGuiCond_Always as _, v2(0.0, 0.0).into());
             } else if self.rest_position.is_none() {
                 sys::igSetNextWindowPos(center.into(), sys::ImGuiCond_FirstUseEver as _, v2(0.5, 0.5).into());
@@ -339,6 +378,12 @@ impl<S> Menu<S> {
         if visibility >= 1.0 || self.rest_position.is_none() {
             self.rest_position = Some(origin);
         }
+        // A move or resize by the user (anything but a refit) becomes the place to go back to.
+        let now = (self.rest_position.unwrap_or(origin), size);
+        if !refit && self.placed != Some(now) {
+            self.wanted = Some(now);
+        }
+        self.placed = Some(now);
         self.window_center = origin + size * 0.5;
         draw_shadow(origin, size);
 

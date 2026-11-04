@@ -23,7 +23,7 @@ public sealed class OverlayOptions
     public int ExitKey { get; init; } = (int)VirtualKey.End;
     /// <summary>
     /// When hotkeys may fire. Default: always, or only while the <see cref="Follow"/> target or the overlay is
-    /// focused when a target is set. Hotkeys never fire while typing in a text field or binding a key.
+    /// focused when a target is set and running. Hotkeys never fire while typing in a text field or binding a key.
     /// </summary>
     public Func<bool>? HotkeyGate { get; init; }
 
@@ -39,7 +39,10 @@ public sealed class OverlayOptions
     /// <summary>Menu window size before scale.</summary>
     public Vector2 MenuSize { get; init; } = new(1000, 600);
 
-    /// <summary>Keep the overlay over this window's client area (e.g. a game). Null covers the primary screen.</summary>
+    /// <summary>
+    /// Keep the overlay over this window's client area (e.g. a game). Null covers the primary screen, and so does a
+    /// target that isn't running yet (or has closed), so the menu can be used without it.
+    /// </summary>
     public WindowTarget? Follow { get; init; }
     /// <summary>Checked every frame; the overlay closes when it returns true (e.g. the game exited).</summary>
     public Func<bool>? ExitWhen { get; init; }

@@ -76,6 +76,8 @@ public sealed class Menu
     private float _aboutProgress = 1f;
     private (string? Title, string? Text) _aboutShown;
     private Vector2? _restPosition;
+    // Where the user put the window, where it was last frame, and the viewport work area it was last fitted to.
+    private (Vector2 Pos, Vector2 Size)? _wanted, _placed, _workArea;
 
     /// <summary>Brand name at the bottom of the tab column.</summary>
     public string Title { get; set; } = "Blaze";
@@ -180,9 +182,23 @@ public sealed class Menu
         var minimum = Vector2.Min(MinSize * scale, available);
         ImGui.SetNextWindowSize(Vector2.Clamp(Size * scale, minimum, available), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSizeConstraints(minimum, available);
+        // imgui.ini may restore a place saved for another screen size, and the screen (or the overlay's target
+        // window) can change size at any time: the menu then goes back to where the user put it, as far as it fits,
+        // instead of hanging off the edge or staying shrunk after a small window.
+        var refit = false;
+        if (_wanted is { } wanted && _workArea != (viewport.WorkPos, viewport.WorkSize))
+        {
+            refit = true;
+            _workArea = (viewport.WorkPos, viewport.WorkSize);
+            var fitted = Vector2.Clamp(wanted.Size, minimum, available);
+            var end = viewport.WorkPos + viewport.WorkSize;
+            _restPosition = new Vector2(Inside(wanted.Pos.X, fitted.X, viewport.WorkPos.X, end.X, 12f * scale),
+                Inside(wanted.Pos.Y, fitted.Y, viewport.WorkPos.Y, end.Y, 12f * scale));
+            ImGui.SetNextWindowSize(fitted, ImGuiCond.Always);
+        }
         // The window rises slightly while it fades in; once open the user can drag it freely.
         var rise = (1f - Anim.EaseOutCubic(visibility)) * 14f * scale;
-        if (_restPosition is { } rest && visibility < 1f)
+        if (_restPosition is { } rest && (visibility < 1f || refit))
             ImGui.SetNextWindowPos(rest + new Vector2(0, rise), ImGuiCond.Always);
         else if (_restPosition is null)
             ImGui.SetNextWindowPos(viewport.WorkPos + viewport.WorkSize * .5f, ImGuiCond.FirstUseEver, new Vector2(.5f));
@@ -201,6 +217,10 @@ public sealed class Menu
 
         var origin = ImGui.GetWindowPos();
         var size = ImGui.GetWindowSize();
+        // A move or resize by the user (anything but a refit) becomes the place to go back to.
+        var placed = (_restPosition.Value, size);
+        if (!refit && placed != _placed) _wanted = placed;
+        _placed = placed;
         DrawShadow(origin, size);
 
         _pageProgress = Math.Min(1f, _pageProgress + Anim.Delta / .26f);
@@ -219,6 +239,14 @@ public sealed class Menu
         DrawContent(new Vector2(rail + nav + 1, 0), new Vector2(content - 1, size.Y));
         if (ShowStatus) DrawStatus(new Vector2(rail + nav + content + 1, 0), new Vector2(size.X - rail - nav - content - 1, size.Y));
         ImGui.End();
+    }
+
+    // A span already inside min..max stays put; otherwise it moves in, a margin from the edge when there is room.
+    private static float Inside(float pos, float size, float min, float max, float margin)
+    {
+        if (pos >= min && pos + size <= max) return pos;
+        margin = Math.Clamp((max - min - size) * .5f, 0f, margin);
+        return Math.Max(min + margin, Math.Min(pos, max - size - margin));
     }
 
     // A soft shadow under the window, drawn behind every ImGui window.

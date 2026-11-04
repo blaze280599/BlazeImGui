@@ -1904,6 +1904,20 @@ namespace
     }
 }
 
+namespace
+{
+    bool SameVec(const ImVec2& a, const ImVec2& b) { return a.x == b.x && a.y == b.y; }
+
+    // A span already inside lo..hi stays put; otherwise it moves in, a margin from the edge when there is room.
+    float KeepInside(float pos, float size, float lo, float hi, float margin)
+    {
+        if (pos >= lo && pos + size <= hi)
+            return pos;
+        margin = std::clamp((hi - lo - size) * 0.5f, 0.0f, margin);
+        return std::max(lo + margin, std::min(pos, hi - size - margin));
+    }
+}
+
 void Blaze::Menu::Draw(float visibility, bool interactive)
 {
     const float scale = Ui::Scale;
@@ -1917,6 +1931,21 @@ void Blaze::Menu::Draw(float visibility, bool interactive)
     ImGui::SetNextWindowSize(ImVec2(std::min(Size.x * scale, screen.x * 0.98f), std::min(Size.y * scale, screen.y * 0.98f)), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
 
+    // imgui.ini may restore a place saved for another screen size, and the screen can change size at any time: the
+    // menu then goes back to where the user put it, as far as it fits, instead of hanging off the edge or staying
+    // shrunk after a small window.
+    bool refit = false;
+    if (wanted && (!workArea || !SameVec(workArea->pos, viewport->WorkPos) || !SameVec(workArea->size, viewport->WorkSize)))
+    {
+        refit = true;
+        workArea = Placement{ viewport->WorkPos, viewport->WorkSize };
+        const ImVec2 fitted(std::clamp(wanted->size.x, minSize.x, maxSize.x), std::clamp(wanted->size.y, minSize.y, maxSize.y));
+        const ImVec2 end = viewport->WorkPos + viewport->WorkSize;
+        restPosition = ImVec2(KeepInside(wanted->pos.x, fitted.x, viewport->WorkPos.x, end.x, 12.0f * scale),
+            KeepInside(wanted->pos.y, fitted.y, viewport->WorkPos.y, end.y, 12.0f * scale));
+        ImGui::SetNextWindowSize(fitted, ImGuiCond_Always);
+    }
+
     // The window rises slightly while it fades in; once open the user can drag it freely.
     const float rise = (1.0f - Anim::EaseOutCubic(visibility)) * 14.0f * scale;
     if (centerPending)
@@ -1925,7 +1954,7 @@ void Blaze::Menu::Draw(float visibility, bool interactive)
         restPosition.reset();
         centerPending = false;
     }
-    else if (restPosition && visibility < 1.0f)
+    else if (restPosition && (visibility < 1.0f || refit))
         ImGui::SetNextWindowPos(*restPosition + ImVec2(0.0f, rise), ImGuiCond_Always);
     else if (!restPosition)
         ImGui::SetNextWindowPos(viewport->WorkPos + viewport->WorkSize * 0.5f, ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
@@ -1948,6 +1977,11 @@ void Blaze::Menu::Draw(float visibility, bool interactive)
 
     const ImVec2 origin = ImGui::GetWindowPos();
     const ImVec2 size = ImGui::GetWindowSize();
+    // A move or resize by the user (anything but a refit) becomes the place to go back to.
+    const Placement now{ *restPosition, size };
+    if (!refit && (!placed || !SameVec(placed->pos, now.pos) || !SameVec(placed->size, now.size)))
+        wanted = now;
+    placed = now;
     windowCenter = origin + size * 0.5f;
     DrawMenuShadow(origin, size);
 

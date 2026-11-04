@@ -22,6 +22,7 @@ public abstract class BlazeOverlay : ClickableTransparentOverlay.Overlay
 {
     private const uint MenuAnimationId = 0xB1A2_E001;
     private bool _menuVisible;
+    private bool _targetMissing;
     private System.Drawing.Rectangle _area;
 
     protected BlazeOverlay(OverlayOptions? options = null) : base((options ??= new OverlayOptions()).Title, true)
@@ -74,7 +75,8 @@ public abstract class BlazeOverlay : ClickableTransparentOverlay.Overlay
 
     /// <summary>
     /// World/HUD drawing behind every ImGui window. Runs every frame, also while the menu is hidden.
-    /// Coordinates are overlay-window pixels (the target's client area when following one).
+    /// Coordinates are overlay-window pixels (the target's client area when following one; the primary monitor
+    /// while that target isn't running, when <see cref="TargetVisible"/> is false).
     /// </summary>
     protected virtual void DrawOverlay(ImDrawListPtr drawList) { }
 
@@ -94,12 +96,8 @@ public abstract class BlazeOverlay : ClickableTransparentOverlay.Overlay
     protected override Task PostInitialized()
     {
         if (Options.HideFromTaskbar) HideFromTaskbar(window.Handle);
-        // The window starts at 800x600; without a target to follow it covers the whole primary monitor.
-        if (Options.Follow is null)
-        {
-            Position = System.Drawing.Point.Empty;
-            Size = new System.Drawing.Size(GetSystemMetrics(0), GetSystemMetrics(1));
-        }
+        // The window starts at 800x600; place it before the first frame so the menu opens at its full size.
+        PlaceWindow();
         VSync = Options.VSync;
         FPSLimit = Options.VSync ? 0 : Options.FpsLimit;
         Ui.Scale = Options.UiScale;
@@ -122,7 +120,7 @@ public abstract class BlazeOverlay : ClickableTransparentOverlay.Overlay
     {
         Input.Update();
         Theme.Update();
-        if (Options.Follow is not null) FollowTarget();
+        if (Options.Follow is not null) PlaceWindow();
         if (Options.ExitWhen?.Invoke() == true)
         {
             Exit();
@@ -154,17 +152,30 @@ public abstract class BlazeOverlay : ClickableTransparentOverlay.Overlay
     {
         if (Ui.IsCapturingKey || ImGui.GetIO().WantTextInput) return false;
         if (Options.HotkeyGate is { } gate) return gate();
-        return Options.Follow is null || Options.Follow.IsForeground(window.Handle);
+        return Options.Follow is null || _targetMissing || Options.Follow.IsForeground(window.Handle);
     }
 
-    private void FollowTarget()
+    // Covers the follow target's client area, or the whole primary monitor without a target. A target that isn't
+    // running (not started yet, or closed) also gets the primary monitor, so the menu opens at full size and stays
+    // usable; a minimized one keeps the overlay where it was.
+    private void PlaceWindow()
     {
-        TargetVisible = Options.Follow!.TryGetClientArea(out var area);
-        if (!TargetVisible || area == _area) return;
+        System.Drawing.Rectangle area;
+        if (Options.Follow is not { } target) area = PrimaryScreen();
+        else
+        {
+            TargetVisible = target.TryGetClientArea(out area);
+            _targetMissing = !TargetVisible && target.Handle == IntPtr.Zero;
+            if (_targetMissing) area = PrimaryScreen();
+            else if (!TargetVisible) return;
+        }
+        if (area == _area) return;
         _area = area;
         Position = area.Location;
         Size = area.Size;
     }
+
+    private static System.Drawing.Rectangle PrimaryScreen() => new(0, 0, GetSystemMetrics(0), GetSystemMetrics(1));
 
     private static void HideFromTaskbar(IntPtr handle)
     {

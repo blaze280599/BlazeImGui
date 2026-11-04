@@ -395,6 +395,9 @@ namespace Blaze
         float aboutProgress = 1.0f;
         std::string aboutShownTitle, aboutShownText;
         std::optional<ImVec2> restPosition;
+        struct Placement { ImVec2 pos, size; };
+        // Where the user put the window, where it was last frame, and the viewport work area it was last fitted to.
+        std::optional<Placement> wanted, placed, workArea;
         bool centerPending = false;
         ImVec2 windowCenter = ImVec2(0.0f, 0.0f);
     };

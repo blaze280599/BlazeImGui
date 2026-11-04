@@ -91,12 +91,12 @@ or use a git submodule unless the user asks.
    ```xml
    <ItemGroup>
      <!-- BlazeOverlay + the menu, theme, fonts and widgets. The packages are in packages\ (see nuget.config). -->
-     <PackageReference Include="BlazeImGui.Overlay" Version="1.2.2" />
+     <PackageReference Include="BlazeImGui.Overlay" Version="1.2.3" />
    </ItemGroup>
    ```
 
 4. **Commit the packages.** Many `.gitignore` templates (including Visual Studio's) ignore `*.nupkg` and
-   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.2.2.nupkg`; if it prints a rule, add these
+   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.2.3.nupkg`; if it prints a rule, add these
    lines to the end of the target's `.gitignore` (adjust the folder if the feed is not at the root):
 
    ```gitignore
@@ -266,14 +266,14 @@ The project's `OutputType` should be `WinExe` (no console window) — wrap `Run(
 | `Logo` | null (first letter of `Title`) | Rail brand mark, drawn bold with the `Brand` dot; an `Icons.*` constant works too |
 | `MenuKey` | `(int)VirtualKey.Insert` | Virtual-key code |
 | `ExitKey` | `(int)VirtualKey.End` | `0` disables |
-| `HotkeyGate` | null | `Func<bool>`; when hotkeys may fire. Default: always, or only while the `Follow` target/overlay is focused |
+| `HotkeyGate` | null | `Func<bool>`; when hotkeys may fire. Default: always, or only while the running `Follow` target/overlay is focused |
 | `StartVisible` | true | |
 | `Theme` | `ThemeMode.Light` | |
 | `Accent` | null (ink: `#2B2B30` light, `#E7E7EB` dark) | selection, fills, primary buttons: `Palette.Hex("#22C55E")` |
 | `FontSize` | 15 | body px |
 | `UiScale` | 1.0 | scales fonts, spacing, widgets |
 | `MenuSize` | 1000×600 | menu is resizable, min 860×500 |
-| `Follow` | null (covers primary monitor) | `WindowTarget.FromProcessName("Game")`, `.FromProcessId(pid)`, `.FromTitle("…")`, `.FromHandle(hwnd)` |
+| `Follow` | null (covers primary monitor) | `WindowTarget.FromProcessName("Game")`, `.FromProcessId(pid)`, `.FromTitle("…")`, `.FromHandle(hwnd)`; covers the primary monitor while the target isn't running |
 | `ExitWhen` | null | `Func<bool>` checked every frame, e.g. `() => process.HasExited` |
 | `VSync` / `FpsLimit` | true / 144 | FpsLimit applies when VSync is false |
 | `HideFromTaskbar` | true | |
@@ -395,7 +395,9 @@ public MyOverlay() : base(new OverlayOptions
 ```
 
 Inside `DrawOverlay`, skip drawing when `!TargetVisible`. Hotkeys then only fire while the game or the
-overlay is focused (override with `HotkeyGate`).
+overlay is focused (override with `HotkeyGate`). Until the game is running (and after it closes) the overlay
+covers the primary monitor instead, with hotkeys always on, so the menu can be used without the game; leave out
+`ExitWhen` to keep it open then (use `WindowTarget.FromProcessName` so it finds the game when it starts).
 
 **Persist settings (incl. theme) as JSON**
 
@@ -499,8 +501,9 @@ Keep the project's data/sampling code unchanged — only the presentation layer 
    `Ui.SameLineRight`.
 6. `ImGui.BeginDisabled(cond)` / `EndDisabled()` works with all `Ui` widgets (dims and blocks input).
 7. Without `Follow`, the overlay covers the **primary monitor**; draw coordinates are screen pixels.
-   With `Follow`, (0,0) is the target's client-area top-left.
-8. Window positions are saved to `imgui.ini` in the working directory (ImGui default).
+   With `Follow`, (0,0) is the target's client-area top-left (the primary monitor while the target isn't running).
+8. Window positions are saved to `imgui.ini` in the working directory (ImGui default). When the overlay changes
+   size (the game starts, closes or resizes), the menu goes back to where the user put it, as far as it fits.
 9. Don't create fonts outside `OnLoadFonts`; don't call `Theme.ApplyStyle` again; don't cache
    `Theme.Colors` across frames.
 
@@ -516,4 +519,5 @@ Keep the project's data/sampling code unchanged — only the presentation layer 
 5. If `Follow` is set: the overlay sits exactly on the game window and hotkeys only work while it is focused.
 
 To see every widget in action: `dotnet run --project samples\BlazeImGui.Demo` (flags: `--theme dark`,
-`--page "Charts"` or `"Controls/Sliders"`, `--backdrop` for an opaque background, `--toast` to show sample toasts).
+`--page "Charts"` or `"Controls/Sliders"`, `--backdrop` for an opaque background, `--toast` to show sample toasts,
+`--follow notepad` to follow a process's window).

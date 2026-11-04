@@ -44,8 +44,8 @@ internal sealed class DemoOverlay : BlazeOverlay
     private bool _crosshair, _watermark = true, _dirty;
     private ImFontPtr _hudFont;
 
-    public DemoOverlay(ThemeMode theme, string? page, bool backdrop)
-        : base(new OverlayOptions { Title = "blaze", Subtitle = "overlay", Version = "v1.0.0", Theme = theme })
+    public DemoOverlay(ThemeMode theme, string? page, bool backdrop, WindowTarget? follow = null)
+        : base(new OverlayOptions { Title = "blaze", Subtitle = "overlay", Version = "v1.0.0", Theme = theme, Follow = follow })
     {
         _backdrop = backdrop;
         for (var i = 0; i < _series.Length; i++) _series[i] = Sample(i * .08f - _series.Length * .08f);
