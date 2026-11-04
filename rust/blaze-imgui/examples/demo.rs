@@ -36,6 +36,7 @@ struct App {
     saved: bool,
     distance: f32,
     smoothing: f32,
+    label_scale: f32,
     fov: i32,
     mode: usize,
     segment: usize,
@@ -114,6 +115,15 @@ fn build_overlay(dark: bool) -> Overlay<App> {
                     10.0,
                     |v| format!("{v:.1}"),
                     Some("Higher values ease movement more."),
+                );
+                ui::slider(
+                    ui,
+                    "Label size",
+                    &mut app.label_scale,
+                    0.75,
+                    1.5,
+                    |v| format!("{v:.2}x"),
+                    Some("Snaps to the two decimals it shows; Left/Right step by 0.01."),
                 );
                 ui::text_input(ui, "Profile name", &mut app.name, "e.g. Raid night", 64, None);
                 ui::number_int(ui, "Count", &mut app.count, 0.2, 0, 99, None);
@@ -397,6 +407,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         saved: true,
         distance: 250.0,
         smoothing: 4.5,
+        label_scale: 1.0,
         fov: 90,
         mode: 0,
         segment: 1,

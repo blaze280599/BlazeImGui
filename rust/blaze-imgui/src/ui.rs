@@ -714,8 +714,55 @@ pub fn checkbox(_ui: &Ui, label: &str, value: &mut bool) -> bool {
     changed
 }
 
+fn round_to(value: f32, decimals: i32) -> f32 {
+    let scale = 10f64.powi(decimals);
+    ((value as f64 * scale).round() / scale) as f32
+}
+
+// The width of the widest text the slider can show: min and max as shown, with every digit drawn as the widest one.
+fn slider_text_width(format: &dyn Fn(f32) -> String, min: f32, max: f32) -> f32 {
+    let mut widest = '0';
+    let mut widest_width = 0.0;
+    for digit in '0'..='9' {
+        let digit_width = calc_text_size(digit.encode_utf8(&mut [0; 4])).x;
+        if digit_width > widest_width {
+            widest = digit;
+            widest_width = digit_width;
+        }
+    }
+    [min, max]
+        .iter()
+        .map(|&value| {
+            let text: String = format(value).chars().map(|c| if c.is_ascii_digit() { widest } else { c }).collect();
+            calc_text_size(&text).x
+        })
+        .fold(0.0, f32::max)
+}
+
+// The decimals the format shows (`{:.2}x` shows 2): the fewest at which rounding leaves the shown text unchanged.
+// `None` when none up to 6 does, or when one shown step is wider than the range.
+fn shown_decimals(format: &dyn Fn(f32) -> String, min: f32, max: f32) -> Option<i32> {
+    let probes = [0.123_456_7, 0.456_789_1, 0.765_432_1];
+    let decimals = (0..=6).find(|&decimals| {
+        probes.iter().all(|probe| {
+            let value = min + (max - min) * probe;
+            format(round_to(value, decimals)) == format(value)
+        })
+    })?;
+    (10f32.powi(-decimals) <= max - min).then_some(decimals)
+}
+
 #[allow(clippy::too_many_arguments)] // mirrors the C# and C++ signatures
-fn slider_core(ui: &Ui, label: &str, value: &mut f32, min: f32, max: f32, step: f32, shown: &str, description: Option<&str>) -> bool {
+fn slider_core(
+    ui: &Ui,
+    label: &str,
+    value: &mut f32,
+    min: f32,
+    max: f32,
+    step: f32,
+    format: &dyn Fn(f32) -> String,
+    description: Option<&str>,
+) -> bool {
     let p = p();
     push_id(label);
     begin_group();
@@ -725,12 +772,14 @@ fn slider_core(ui: &Ui, label: &str, value: &mut f32, min: f32, max: f32, step: 
     let start = cursor_screen_pos();
     let draw = Draw::window();
 
-    // the value box
-    let text_size = calc_text_size(shown);
-    let box_width = s(48.0).max(text_size.x + s(20.0));
+    // The value box, as wide as the widest text the slider can show: if it followed the current text, the track would
+    // shift under a still cursor whenever the text changed width (Inter's digits are proportional).
+    let shown = format(*value);
+    let text_size = calc_text_size(&shown);
+    let box_width = s(48.0).max(slider_text_width(format, min, max) + s(20.0)).max(text_size.x + s(20.0));
     draw.rect_filled(start, start + v2(box_width, height), col(p.surface, 1.0), s(4.0));
     draw.rect(start, start + v2(box_width, height), col(p.border, 1.0), s(4.0));
-    draw.text(start + (v2(box_width, height) - text_size) * 0.5, col(p.text, 1.0), shown);
+    draw.text(start + (v2(box_width, height) - text_size) * 0.5, col(p.text, 1.0), &shown);
 
     // the track: a thin rail, an ink fill up to a small grip
     let grip = s2(22.0, 15.0);
@@ -747,16 +796,43 @@ fn slider_core(ui: &Ui, label: &str, value: &mut f32, min: f32, max: f32, step: 
     let left = track_start.x + grip.x * 0.5;
     let right = track_start.x + track_width - grip.x * 0.5;
     let mut changed = false;
-    if active && max > min {
-        let mouse = unsafe { (*sys::igGetIO_Nil()).MousePos.x };
-        let fraction = ((mouse - left) / (right - left)).clamp(0.0, 1.0);
-        let mut next = min + fraction * (max - min);
-        if step > 0.0 {
-            next = (next / step).round() * step;
+    if (active || hovered) && max > min {
+        let io = unsafe { &*sys::igGetIO_Nil() };
+        let storage = unsafe { sys::igGetStateStorage() };
+        let grab_id = get_id(c"##grab");
+        let from_mouse = |x: f32| min + ((x - left) / (right - left)).clamp(0.0, 1.0) * (max - min);
+        let mut next = None;
+        if unsafe { sys::igIsItemActivated() } {
+            // Pressing the grip keeps the value and drags from where it was grabbed; pressing the rail jumps there.
+            let grip_center = anim::lerp(left, right, ((*value - min) / (max - min)).clamp(0.0, 1.0));
+            let on_grip = (io.MousePos.x - grip_center).abs() <= grip.x * 0.5;
+            unsafe { sys::ImGuiStorage_SetFloat(storage, grab_id, if on_grip { io.MousePos.x - grip_center } else { 0.0 }) };
+            if !on_grip {
+                next = Some(from_mouse(io.MousePos.x));
+            }
+        } else if active && io.MouseDelta.x != 0.0 {
+            next = Some(from_mouse(io.MousePos.x - unsafe { sys::ImGuiStorage_GetFloat(storage, grab_id, 0.0) }));
         }
-        if next != *value {
-            *value = next;
-            changed = true;
+        // Left/Right step by one shown unit, for values the track has too few pixels to land on.
+        let keys = active || !io.WantTextInput;
+        let pressed = |key| keys && unsafe { sys::igIsKeyPressed_Bool(key, true) };
+        let direction = pressed(sys::ImGuiKey_RightArrow) as i32 - pressed(sys::ImGuiKey_LeftArrow) as i32;
+        if next.is_some() || direction != 0 {
+            // Values snap to what the box shows, so the stored value is the one on screen and equal-looking values
+            // cannot alternate.
+            let decimals = if step > 0.0 { None } else { shown_decimals(format, min, max) };
+            let unit = if step > 0.0 { step } else { decimals.map_or((max - min) / 100.0, |d| 10f32.powi(-d)) };
+            let mut candidate = next.unwrap_or(*value) + direction as f32 * unit;
+            if step > 0.0 {
+                candidate = (candidate / step).round() * step;
+            } else if let Some(decimals) = decimals {
+                candidate = round_to(candidate, decimals);
+            }
+            candidate = candidate.clamp(min, max);
+            if candidate != *value {
+                *value = candidate;
+                changed = true;
+            }
         }
     }
     let target = if max > min { ((*value - min) / (max - min)).clamp(0.0, 1.0) } else { 0.0 };
@@ -802,7 +878,8 @@ fn slider_core(ui: &Ui, label: &str, value: &mut f32, min: f32, max: f32, step: 
     changed
 }
 
-/// The label above, the value in a box and the track beside it. `format` renders the value: `|v| format!("{v:.2}")`.
+/// The label above, the value in a box and the track beside it. `format` renders the value: `|v| format!("{v:.2}")`;
+/// the value snaps to the precision it shows. Left/Right step by one shown unit while the slider is hovered or dragged.
 pub fn slider(
     ui: &Ui,
     label: &str,
@@ -812,14 +889,13 @@ pub fn slider(
     format: impl Fn(f32) -> String,
     description: Option<&str>,
 ) -> bool {
-    let shown = format(*value);
-    slider_core(ui, label, value, min, max, 0.0, &shown, description)
+    slider_core(ui, label, value, min, max, 0.0, &format, description)
 }
 
 /// Integer slider; snaps to whole numbers.
 pub fn slider_int(ui: &Ui, label: &str, value: &mut i32, min: i32, max: i32, description: Option<&str>) -> bool {
     let mut f = *value as f32;
-    if !slider_core(ui, label, &mut f, min as f32, max as f32, 1.0, &value.to_string(), description) {
+    if !slider_core(ui, label, &mut f, min as f32, max as f32, 1.0, &|v: f32| (v.round() as i32).to_string(), description) {
         return false;
     }
     *value = f.round() as i32;

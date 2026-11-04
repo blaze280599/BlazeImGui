@@ -16,7 +16,7 @@ internal sealed class DemoOverlay : BlazeOverlay
 
     // Controls
     private bool _checkA = true, _checkB, _checkC = true;
-    private float _smoothing = 4.5f;
+    private float _smoothing = 4.5f, _labelScale = 1f;
     private int _quality = 1, _menuKey = (int)VirtualKey.Insert, _aimKey = (int)VirtualKey.XButton2;
 
     // Inputs
@@ -56,7 +56,7 @@ internal sealed class DemoOverlay : BlazeOverlay
 
         var controls = Menu.AddPage("Controls", Icons.Crosshair, "Widgets");
         controls.AddTab("Toggles", DrawToggles, "Checkbox rows for settings, compact checkboxes for several on one line.");
-        controls.AddTab("Sliders", DrawSliders, "The value sits in the box, drag anywhere on the track.");
+        controls.AddTab("Sliders", DrawSliders, "The value sits in the box, drag anywhere on the track. Left/Right step by one unit.");
         controls.AddTab("Buttons", DrawButtons, "Outlined by default; primary is filled with the ink color.");
         controls.AddTab("Keybinds", DrawKeybinds, "Click, then press a key. Esc cancels, Backspace clears.");
 
@@ -202,6 +202,7 @@ internal sealed class DemoOverlay : BlazeOverlay
         Ui.Slider("Smoothing", ref _smoothing, 1, 10, "0.0", "Higher values ease movement more. 3 - 6 feels natural.");
         Ui.Slider("Max distance", ref _distance, 10, 500, "0", "Players further away than this are not drawn.");
         Ui.Slider("Opacity", ref _opacity, 0, 1, "0%", "How see-through the world drawings are.");
+        Ui.Slider("Label size", ref _labelScale, .75f, 1.5f, "0.00'x'", "Snaps to the two decimals it shows; Left/Right step by 0.01.");
     }
 
     private void DrawButtons()

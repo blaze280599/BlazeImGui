@@ -130,7 +130,8 @@ public static partial class Ui
 
     /// <summary>
     /// A labeled slider: the label above, the value in a box on the left and the track to its right.
-    /// <paramref name="format"/> is a .NET format string.
+    /// <paramref name="format"/> is a .NET format string; the value snaps to the precision it shows ("0.00" stores
+    /// 1.00, never 1.0042). Left/Right step by one shown unit while the slider is hovered or dragged.
     /// </summary>
     public static bool Slider(string label, ref float value, float min, float max, string format = "0.0", string? description = null)
         => SliderCore(label, ref value, min, max, 0f, format, description);
@@ -154,10 +155,11 @@ public static partial class Ui
         var start = ImGui.GetCursorScreenPos();
         var draw = ImGui.GetWindowDrawList();
 
-        // The value box.
+        // The value box, as wide as the widest text the slider can show: if it followed the current text, the track
+        // would shift under a still cursor whenever the text changed width (Inter's digits are proportional).
         var shown = value.ToString(format, CultureInfo.InvariantCulture);
         var textSize = ImGui.CalcTextSize(shown);
-        var boxWidth = MathF.Max(S(48), textSize.X + S(20));
+        var boxWidth = MathF.Max(MathF.Max(S(48), SliderTextWidth(format, min, max) + S(20)), textSize.X + S(20));
         draw.AddRectFilled(start, start + new Vector2(boxWidth, height), Col(P.Surface), S(4));
         draw.AddRect(start, start + new Vector2(boxWidth, height), Col(P.Border), S(4));
         draw.AddText(start + (new Vector2(boxWidth, height) - textSize) * .5f, Col(P.Text), shown);
@@ -175,12 +177,38 @@ public static partial class Ui
         var left = trackStart.X + gripSize.X * .5f;
         var right = trackStart.X + trackWidth - gripSize.X * .5f;
         var changed = false;
-        if (active && max > min)
+        if ((active || hovered) && max > min)
         {
-            var fraction = Math.Clamp((ImGui.GetIO().MousePos.X - left) / (right - left), 0f, 1f);
-            var next = min + fraction * (max - min);
-            if (step > 0) next = MathF.Round(next / step) * step;
-            if (next != value) { value = next; changed = true; }
+            var io = ImGui.GetIO();
+            var storage = ImGui.GetStateStorage();
+            var grabId = ImGui.GetID("##grab");
+            float FromMouse(float x) => min + Math.Clamp((x - left) / (right - left), 0f, 1f) * (max - min);
+            float? next = null;
+            if (ImGui.IsItemActivated())
+            {
+                // Pressing the grip keeps the value and drags from where it was grabbed; pressing the rail jumps there.
+                var gripCenter = Anim.Lerp(left, right, Math.Clamp((value - min) / (max - min), 0f, 1f));
+                var onGrip = MathF.Abs(io.MousePos.X - gripCenter) <= gripSize.X * .5f;
+                storage.SetFloat(grabId, onGrip ? io.MousePos.X - gripCenter : 0f);
+                if (!onGrip) next = FromMouse(io.MousePos.X);
+            }
+            else if (active && io.MouseDelta.X != 0)
+                next = FromMouse(io.MousePos.X - storage.GetFloat(grabId, 0f));
+            // Left/Right step by one shown unit, for values the track has too few pixels to land on.
+            var keys = active || !io.WantTextInput;
+            var direction = (keys && ImGui.IsKeyPressed(ImGuiKey.RightArrow) ? 1 : 0) - (keys && ImGui.IsKeyPressed(ImGuiKey.LeftArrow) ? 1 : 0);
+            if (next is not null || direction != 0)
+            {
+                // Values snap to what the box shows, so the stored value is the one on screen and equal-looking
+                // values cannot alternate.
+                var decimals = step > 0 ? -1 : ShownDecimals(format, min, max);
+                var unit = step > 0 ? step : decimals >= 0 ? MathF.Pow(10, -decimals) : (max - min) / 100f;
+                var candidate = (next ?? value) + direction * unit;
+                if (step > 0) candidate = MathF.Round(candidate / step) * step;
+                else if (decimals >= 0) candidate = (float)Math.Round(candidate, decimals);
+                candidate = Math.Clamp(candidate, min, max);
+                if (candidate != value) { value = candidate; changed = true; }
+            }
         }
         var target = max > min ? Math.Clamp((value - min) / (max - min), 0f, 1f) : 0f;
         var t = Anim.To(ImGui.GetID("##fill"), target, active ? 40f : 16f);
@@ -215,6 +243,47 @@ public static partial class Ui
         About(description, label);
         Gap();
         return changed;
+    }
+
+    private static readonly string[] DigitText = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+    // The width of the widest text the slider can show: min and max as shown, with every digit drawn as the widest one.
+    private static float SliderTextWidth(string format, float min, float max)
+    {
+        var widest = '0';
+        var widestWidth = 0f;
+        for (var i = 0; i < DigitText.Length; i++)
+        {
+            var digitWidth = ImGui.CalcTextSize(DigitText[i]).X;
+            if (digitWidth > widestWidth) (widest, widestWidth) = ((char)('0' + i), digitWidth);
+        }
+        string Widen(float value)
+        {
+            var text = value.ToString(format, CultureInfo.InvariantCulture).ToCharArray();
+            for (var i = 0; i < text.Length; i++)
+                if (char.IsAsciiDigit(text[i])) text[i] = widest;
+            return new string(text);
+        }
+        return MathF.Max(ImGui.CalcTextSize(Widen(min)).X, ImGui.CalcTextSize(Widen(max)).X);
+    }
+
+    // The decimals the format shows ("0.00'x'" shows 2, "0%" shows 2 of the fraction): the fewest at which rounding
+    // leaves the shown text unchanged. -1 when none up to 6 does, or when one shown step is wider than the range.
+    private static int ShownDecimals(string format, float min, float max)
+    {
+        ReadOnlySpan<float> probes = [.1234567f, .4567891f, .7654321f];
+        for (var decimals = 0; decimals <= 6; decimals++)
+        {
+            var same = true;
+            foreach (var probe in probes)
+            {
+                var value = min + (max - min) * probe;
+                if (((float)Math.Round(value, decimals)).ToString(format, CultureInfo.InvariantCulture) !=
+                    value.ToString(format, CultureInfo.InvariantCulture)) { same = false; break; }
+            }
+            if (same) return MathF.Pow(10, -decimals) <= max - min ? decimals : -1;
+        }
+        return -1;
     }
 
     // ---------------------------------------------------------------- buttons

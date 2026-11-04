@@ -91,12 +91,12 @@ or use a git submodule unless the user asks.
    ```xml
    <ItemGroup>
      <!-- BlazeOverlay + the menu, theme, fonts and widgets. The packages are in packages\ (see nuget.config). -->
-     <PackageReference Include="BlazeImGui.Overlay" Version="1.2.0" />
+     <PackageReference Include="BlazeImGui.Overlay" Version="1.2.1" />
    </ItemGroup>
    ```
 
 4. **Commit the packages.** Many `.gitignore` templates (including Visual Studio's) ignore `*.nupkg` and
-   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.2.0.nupkg`; if it prints a rule, add these
+   `packages/`. Check with `git check-ignore -v packages\BlazeImGui.1.2.1.nupkg`; if it prints a rule, add these
    lines to the end of the target's `.gitignore` (adjust the folder if the feed is not at the root):
 
    ```gitignore
@@ -326,7 +326,7 @@ the control is hovered. Labels follow ImGui ID rules — text after `##` is hidd
 |---|---|
 | `Ui.Toggle(label, ref bool, description?)` | checkbox row, whole row clickable — preferred for on/off settings |
 | `Ui.Checkbox(label, ref bool)` | compact checkbox sized to its label, for several on one line |
-| `Ui.Slider(label, ref float, min, max, format = "0.0", description?)` | value box + track with grip; .NET format: `"0"`, `"0%"` (×100), `"0.00"` |
+| `Ui.Slider(label, ref float, min, max, format = "0.0", description?)` | value box + track with grip; .NET format: `"0"`, `"0%"` (×100), `"0.00"`; the value snaps to the precision the format shows, and Left/Right step one shown unit while hovered or dragged |
 | `Ui.Slider(label, ref int, min, max, format = "0", description?)` | snaps to integers |
 | `Ui.Button(label, ButtonKind = Secondary, size = default)` | `Secondary` outlined, `Primary` ink-filled, `Ghost`, `Danger`; `size.X < 0` = full width; settings buttons look best at `new Vector2(Ui.ControlWidth, 0)` |
 | `Ui.IconButton(Icons.X, "##id", tooltip?, size = 0)` | square borderless button |

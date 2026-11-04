@@ -153,7 +153,7 @@ int main(int argc, char** argv)
     Overlay overlay(options);
 
     bool esp = true, names = true, health = true, unfocused = false, check = true, saved = true;
-    float distance = 250.0f, smoothing = 4.5f;
+    float distance = 250.0f, smoothing = 4.5f, labelScale = 1.0f;
     int fov = 90, mode = 0, segment = 1, key = VK_F6, count = 12, theme = dark ? 1 : 0;
     std::string name;
     ImVec4 color = Palette::Hex("#FF6B6B");
@@ -181,6 +181,7 @@ int main(int argc, char** argv)
     controls.AddTab("Inputs", [&] {
         Ui::Combo("Mode", &mode, modes, "How the overlay picks its target.");
         Ui::Slider("Smoothing", &smoothing, 1, 10, "%.1f", "Higher values ease movement more.");
+        Ui::Slider("Label size", &labelScale, 0.75f, 1.5f, "%.2fx", "Snaps to the two decimals it shows; Left/Right step by 0.01.");
         Ui::TextInput("Profile name", &name, "e.g. Raid night");
         Ui::Number("Count", &count, 0.2f, 0, 99);
         Ui::Row("Quality");

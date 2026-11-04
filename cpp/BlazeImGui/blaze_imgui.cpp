@@ -982,7 +982,74 @@ bool Blaze::Ui::Checkbox(const char* label, bool* value)
 
 namespace
 {
-    bool SliderCore(const char* label, float* value, float min, float max, float step, const char* shown, const char* description)
+    // A slider's value as shown: printf with a float, or with an int for integer sliders.
+    std::string SliderText(const char* format, bool integer, float value)
+    {
+        char text[64];
+        if (integer)
+            snprintf(text, sizeof(text), format, static_cast<int>(std::round(value)));
+        else
+            snprintf(text, sizeof(text), format, value);
+        return text;
+    }
+
+    float RoundTo(float value, int decimals)
+    {
+        const double scale = std::pow(10.0, decimals);
+        return static_cast<float>(std::round(static_cast<double>(value) * scale) / scale);
+    }
+
+    // The width of the widest text the slider can show: min and max as shown, with every digit drawn as the widest one.
+    float SliderTextWidth(const char* format, bool integer, float min, float max)
+    {
+        char widest = '0';
+        float widestWidth = 0.0f;
+        for (char digit = '0'; digit <= '9'; ++digit)
+        {
+            const char text[2] = { digit, 0 };
+            const float digitWidth = ImGui::CalcTextSize(text).x;
+            if (digitWidth > widestWidth)
+            {
+                widest = digit;
+                widestWidth = digitWidth;
+            }
+        }
+        float width = 0.0f;
+        for (const float value : { min, max })
+        {
+            std::string text = SliderText(format, integer, value);
+            for (char& c : text)
+                if (c >= '0' && c <= '9')
+                    c = widest;
+            width = std::max(width, ImGui::CalcTextSize(text.c_str()).x);
+        }
+        return width;
+    }
+
+    // The decimals the format shows ("%.2fx" shows 2): the fewest at which rounding leaves the shown text unchanged.
+    // -1 when none up to 6 does, or when one shown step is wider than the range.
+    int ShownDecimals(const char* format, float min, float max)
+    {
+        const float probes[] = { 0.1234567f, 0.4567891f, 0.7654321f };
+        for (int decimals = 0; decimals <= 6; ++decimals)
+        {
+            bool same = true;
+            for (const float probe : probes)
+            {
+                const float value = min + (max - min) * probe;
+                if (SliderText(format, false, RoundTo(value, decimals)) != SliderText(format, false, value))
+                {
+                    same = false;
+                    break;
+                }
+            }
+            if (same)
+                return std::pow(10.0f, static_cast<float>(-decimals)) <= max - min ? decimals : -1;
+        }
+        return -1;
+    }
+
+    bool SliderCore(const char* label, float* value, float min, float max, float step, const char* format, bool integer, const char* description)
     {
         using namespace Blaze;
         ImGui::PushID(label);
@@ -993,12 +1060,14 @@ namespace
         const ImVec2 start = ImGui::GetCursorScreenPos();
         ImDrawList* draw = ImGui::GetWindowDrawList();
 
-        // the value box
-        const ImVec2 textSize = ImGui::CalcTextSize(shown);
-        const float boxWidth = std::max(S(48), textSize.x + S(20));
+        // The value box, as wide as the widest text the slider can show: if it followed the current text, the track
+        // would shift under a still cursor whenever the text changed width (Inter's digits are proportional).
+        const std::string shown = SliderText(format, integer, *value);
+        const ImVec2 textSize = ImGui::CalcTextSize(shown.c_str());
+        const float boxWidth = std::max(std::max(S(48), SliderTextWidth(format, integer, min, max) + S(20)), textSize.x + S(20));
         draw->AddRectFilled(start, start + ImVec2(boxWidth, height), Col(P().Surface), S(4));
         draw->AddRect(start, start + ImVec2(boxWidth, height), Col(P().Border), S(4));
-        draw->AddText(start + (ImVec2(boxWidth, height) - textSize) * 0.5f, Col(P().Text), shown);
+        draw->AddText(start + (ImVec2(boxWidth, height) - textSize) * 0.5f, Col(P().Text), shown.c_str());
 
         // the track: a thin rail, an ink fill up to a small grip
         const ImVec2 gripSize = Ui::S(22, 15);
@@ -1014,16 +1083,44 @@ namespace
         const float left = trackStart.x + gripSize.x * 0.5f;
         const float right = trackStart.x + trackWidth - gripSize.x * 0.5f;
         bool changed = false;
-        if (active && max > min)
+        if ((active || hovered) && max > min)
         {
-            const float fraction = std::clamp((ImGui::GetIO().MousePos.x - left) / (right - left), 0.0f, 1.0f);
-            float next = min + fraction * (max - min);
-            if (step > 0.0f)
-                next = std::round(next / step) * step;
-            if (next != *value)
+            const ImGuiIO& io = ImGui::GetIO();
+            ImGuiStorage* storage = ImGui::GetStateStorage();
+            const ImGuiID grabId = ImGui::GetID("##grab");
+            auto fromMouse = [&](float x) { return min + std::clamp((x - left) / (right - left), 0.0f, 1.0f) * (max - min); };
+            std::optional<float> next;
+            if (ImGui::IsItemActivated())
             {
-                *value = next;
-                changed = true;
+                // Pressing the grip keeps the value and drags from where it was grabbed; pressing the rail jumps there.
+                const float gripCenter = Anim::Lerp(left, right, std::clamp((*value - min) / (max - min), 0.0f, 1.0f));
+                const bool onGrip = std::fabs(io.MousePos.x - gripCenter) <= gripSize.x * 0.5f;
+                storage->SetFloat(grabId, onGrip ? io.MousePos.x - gripCenter : 0.0f);
+                if (!onGrip)
+                    next = fromMouse(io.MousePos.x);
+            }
+            else if (active && io.MouseDelta.x != 0.0f)
+                next = fromMouse(io.MousePos.x - storage->GetFloat(grabId, 0.0f));
+            // Left/Right step by one shown unit, for values the track has too few pixels to land on.
+            const bool keys = active || !io.WantTextInput;
+            const int direction = (keys && ImGui::IsKeyPressed(ImGuiKey_RightArrow) ? 1 : 0) - (keys && ImGui::IsKeyPressed(ImGuiKey_LeftArrow) ? 1 : 0);
+            if (next || direction != 0)
+            {
+                // Values snap to what the box shows, so the stored value is the one on screen and equal-looking
+                // values cannot alternate.
+                const int decimals = step > 0.0f ? -1 : ShownDecimals(format, min, max);
+                const float unit = step > 0.0f ? step : decimals >= 0 ? std::pow(10.0f, static_cast<float>(-decimals)) : (max - min) / 100.0f;
+                float candidate = next.value_or(*value) + static_cast<float>(direction) * unit;
+                if (step > 0.0f)
+                    candidate = std::round(candidate / step) * step;
+                else if (decimals >= 0)
+                    candidate = RoundTo(candidate, decimals);
+                candidate = std::clamp(candidate, min, max);
+                if (candidate != *value)
+                {
+                    *value = candidate;
+                    changed = true;
+                }
             }
         }
         const float target = max > min ? std::clamp((*value - min) / (max - min), 0.0f, 1.0f) : 0.0f;
@@ -1062,15 +1159,13 @@ namespace
 
 bool Blaze::Ui::Slider(const char* label, float* value, float min, float max, const char* format, const char* description)
 {
-    return SliderCore(label, value, min, max, 0.0f, Format(format, *value).c_str(), description);
+    return SliderCore(label, value, min, max, 0.0f, format, false, description);
 }
 
 bool Blaze::Ui::Slider(const char* label, int* value, int min, int max, const char* format, const char* description)
 {
-    char shown[64];
-    snprintf(shown, sizeof(shown), format, *value);
     float f = static_cast<float>(*value);
-    if (!SliderCore(label, &f, static_cast<float>(min), static_cast<float>(max), 1.0f, shown, description))
+    if (!SliderCore(label, &f, static_cast<float>(min), static_cast<float>(max), 1.0f, format, true, description))
         return false;
     *value = static_cast<int>(std::round(f));
     return true;
