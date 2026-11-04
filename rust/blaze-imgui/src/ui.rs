@@ -752,6 +752,15 @@ fn shown_decimals(format: &dyn Fn(f32) -> String, min: f32, max: f32) -> Option<
     (10f32.powi(-decimals) <= max - min).then_some(decimals)
 }
 
+// The step a drag snaps to: one shown unit, or when that is under 2 px of track, the smallest 1-2-5 multiple of it
+// (2, 5, 10, 20, 50...) that is at least 2 px, so round values stay within the mouse's reach.
+fn drag_step(unit: f32, pixels_per_value: f32) -> f32 {
+    (0..9)
+        .flat_map(|power| [1.0, 2.0, 5.0].map(|factor| unit * factor * 10f32.powi(power)))
+        .find(|step| step * pixels_per_value >= 2.0)
+        .unwrap_or(unit)
+}
+
 #[allow(clippy::too_many_arguments)] // mirrors the C# and C++ signatures
 fn slider_core(
     ui: &Ui,
@@ -813,8 +822,15 @@ fn slider_core(
         } else if active && io.MouseDelta.x != 0.0 {
             next = Some(from_mouse(io.MousePos.x - unsafe { sys::ImGuiStorage_GetFloat(storage, grab_id, 0.0) }));
         }
-        // Left/Right step by one shown unit, for values the track has too few pixels to land on.
+        // Left/Right step by one shown unit, for values the track has too few pixels to land on. The slider owns them
+        // meanwhile, so keyboard nav does not move with them.
         let keys = active || !io.WantTextInput;
+        if keys {
+            unsafe {
+                sys::igSetItemKeyOwner_Nil(sys::ImGuiKey_LeftArrow);
+                sys::igSetItemKeyOwner_Nil(sys::ImGuiKey_RightArrow);
+            }
+        }
         let pressed = |key| keys && unsafe { sys::igIsKeyPressed_Bool(key, true) };
         let direction = pressed(sys::ImGuiKey_RightArrow) as i32 - pressed(sys::ImGuiKey_LeftArrow) as i32;
         if next.is_some() || direction != 0 {
@@ -822,7 +838,14 @@ fn slider_core(
             // cannot alternate.
             let decimals = if step > 0.0 { None } else { shown_decimals(format, min, max) };
             let unit = if step > 0.0 { step } else { decimals.map_or((max - min) / 100.0, |d| 10f32.powi(-d)) };
-            let mut candidate = next.unwrap_or(*value) + direction as f32 * unit;
+            let mut candidate = next.unwrap_or(*value);
+            // Drags snap to round steps when one unit is narrower than the mouse can pick out (10 yd steps for
+            // 10 - 500 yd on a 165 px track); Left/Right still move one unit.
+            if next.is_some() && (step > 0.0 || decimals.is_some()) {
+                let drag = drag_step(unit, (right - left) / (max - min));
+                candidate = (candidate / drag).round() * drag;
+            }
+            candidate += direction as f32 * unit;
             if step > 0.0 {
                 candidate = (candidate / step).round() * step;
             } else if let Some(decimals) = decimals {
@@ -879,7 +902,8 @@ fn slider_core(
 }
 
 /// The label above, the value in a box and the track beside it. `format` renders the value: `|v| format!("{v:.2}")`;
-/// the value snaps to the precision it shows. Left/Right step by one shown unit while the slider is hovered or dragged.
+/// the value snaps to the precision it shows. When the track has under 2 px per shown unit, drags snap to round 1-2-5
+/// steps; Left/Right still step by one shown unit while the slider is hovered or dragged.
 pub fn slider(
     ui: &Ui,
     label: &str,

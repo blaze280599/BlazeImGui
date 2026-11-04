@@ -1049,6 +1049,17 @@ namespace
         return -1;
     }
 
+    // The step a drag snaps to: one shown unit, or when that is under 2 px of track, the smallest 1-2-5 multiple of it
+    // (2, 5, 10, 20, 50...) that is at least 2 px, so round values stay within the mouse's reach.
+    float DragStep(float unit, float pixelsPerValue)
+    {
+        for (float scale = 1.0f; scale < 1e9f; scale *= 10.0f)
+            for (const float factor : { 1.0f, 2.0f, 5.0f })
+                if (unit * factor * scale * pixelsPerValue >= 2.0f)
+                    return unit * factor * scale;
+        return unit;
+    }
+
     bool SliderCore(const char* label, float* value, float min, float max, float step, const char* format, bool integer, const char* description)
     {
         using namespace Blaze;
@@ -1101,8 +1112,14 @@ namespace
             }
             else if (active && io.MouseDelta.x != 0.0f)
                 next = fromMouse(io.MousePos.x - storage->GetFloat(grabId, 0.0f));
-            // Left/Right step by one shown unit, for values the track has too few pixels to land on.
+            // Left/Right step by one shown unit, for values the track has too few pixels to land on. The slider owns
+            // them meanwhile, so keyboard nav does not move with them.
             const bool keys = active || !io.WantTextInput;
+            if (keys)
+            {
+                ImGui::SetItemKeyOwner(ImGuiKey_LeftArrow);
+                ImGui::SetItemKeyOwner(ImGuiKey_RightArrow);
+            }
             const int direction = (keys && ImGui::IsKeyPressed(ImGuiKey_RightArrow) ? 1 : 0) - (keys && ImGui::IsKeyPressed(ImGuiKey_LeftArrow) ? 1 : 0);
             if (next || direction != 0)
             {
@@ -1110,7 +1127,15 @@ namespace
                 // values cannot alternate.
                 const int decimals = step > 0.0f ? -1 : ShownDecimals(format, min, max);
                 const float unit = step > 0.0f ? step : decimals >= 0 ? std::pow(10.0f, static_cast<float>(-decimals)) : (max - min) / 100.0f;
-                float candidate = next.value_or(*value) + static_cast<float>(direction) * unit;
+                float candidate = next.value_or(*value);
+                // Drags snap to round steps when one unit is narrower than the mouse can pick out (10 yd steps for
+                // 10 - 500 yd on a 165 px track); Left/Right still move one unit.
+                if (next && (step > 0.0f || decimals >= 0))
+                {
+                    const float dragStep = DragStep(unit, (right - left) / (max - min));
+                    candidate = std::round(candidate / dragStep) * dragStep;
+                }
+                candidate += static_cast<float>(direction) * unit;
                 if (step > 0.0f)
                     candidate = std::round(candidate / step) * step;
                 else if (decimals >= 0)

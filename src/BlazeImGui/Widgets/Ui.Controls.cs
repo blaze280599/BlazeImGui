@@ -131,7 +131,8 @@ public static partial class Ui
     /// <summary>
     /// A labeled slider: the label above, the value in a box on the left and the track to its right.
     /// <paramref name="format"/> is a .NET format string; the value snaps to the precision it shows ("0.00" stores
-    /// 1.00, never 1.0042). Left/Right step by one shown unit while the slider is hovered or dragged.
+    /// 1.00, never 1.0042). When the track has under 2 px per shown unit, drags snap to round 1-2-5 steps (10 yd on a
+    /// 10 - 500 yd slider); Left/Right still step by one shown unit while the slider is hovered or dragged.
     /// </summary>
     public static bool Slider(string label, ref float value, float min, float max, string format = "0.0", string? description = null)
         => SliderCore(label, ref value, min, max, 0f, format, description);
@@ -194,8 +195,14 @@ public static partial class Ui
             }
             else if (active && io.MouseDelta.X != 0)
                 next = FromMouse(io.MousePos.X - storage.GetFloat(grabId, 0f));
-            // Left/Right step by one shown unit, for values the track has too few pixels to land on.
+            // Left/Right step by one shown unit, for values the track has too few pixels to land on. The slider owns
+            // them meanwhile, so keyboard nav does not move with them.
             var keys = active || !io.WantTextInput;
+            if (keys)
+            {
+                ImGui.SetItemKeyOwner(ImGuiKey.LeftArrow);
+                ImGui.SetItemKeyOwner(ImGuiKey.RightArrow);
+            }
             var direction = (keys && ImGui.IsKeyPressed(ImGuiKey.RightArrow) ? 1 : 0) - (keys && ImGui.IsKeyPressed(ImGuiKey.LeftArrow) ? 1 : 0);
             if (next is not null || direction != 0)
             {
@@ -203,7 +210,15 @@ public static partial class Ui
                 // values cannot alternate.
                 var decimals = step > 0 ? -1 : ShownDecimals(format, min, max);
                 var unit = step > 0 ? step : decimals >= 0 ? MathF.Pow(10, -decimals) : (max - min) / 100f;
-                var candidate = (next ?? value) + direction * unit;
+                var candidate = next ?? value;
+                // Drags snap to round steps when one unit is narrower than the mouse can pick out (10 yd steps for
+                // 10 - 500 yd on a 165 px track); Left/Right still move one unit.
+                if (next is not null && (step > 0 || decimals >= 0))
+                {
+                    var dragStep = DragStep(unit, (right - left) / (max - min));
+                    candidate = MathF.Round(candidate / dragStep) * dragStep;
+                }
+                candidate += direction * unit;
                 if (step > 0) candidate = MathF.Round(candidate / step) * step;
                 else if (decimals >= 0) candidate = (float)Math.Round(candidate, decimals);
                 candidate = Math.Clamp(candidate, min, max);
@@ -284,6 +299,17 @@ public static partial class Ui
             if (same) return MathF.Pow(10, -decimals) <= max - min ? decimals : -1;
         }
         return -1;
+    }
+
+    // The step a drag snaps to: one shown unit, or when that is under 2 px of track, the smallest 1-2-5 multiple of it
+    // (2, 5, 10, 20, 50...) that is at least 2 px, so round values stay within the mouse's reach.
+    private static float DragStep(float unit, float pixelsPerValue)
+    {
+        ReadOnlySpan<float> factors = [1, 2, 5];
+        for (var scale = 1f; scale < 1e9f; scale *= 10)
+            foreach (var factor in factors)
+                if (unit * factor * scale * pixelsPerValue >= 2f) return unit * factor * scale;
+        return unit;
     }
 
     // ---------------------------------------------------------------- buttons

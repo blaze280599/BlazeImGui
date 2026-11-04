@@ -17,7 +17,7 @@ internal sealed class DemoOverlay : BlazeOverlay
     // Controls
     private bool _checkA = true, _checkB, _checkC = true;
     private float _smoothing = 4.5f, _labelScale = 1f;
-    private int _quality = 1, _menuKey = (int)VirtualKey.Insert, _aimKey = (int)VirtualKey.XButton2;
+    private int _quality = 1, _range = 250, _menuKey = (int)VirtualKey.Insert, _aimKey = (int)VirtualKey.XButton2;
 
     // Inputs
     private int _mode, _radio = 1, _listItem = 2;
@@ -203,6 +203,7 @@ internal sealed class DemoOverlay : BlazeOverlay
         Ui.Slider("Max distance", ref _distance, 10, 500, "0", "Players further away than this are not drawn.");
         Ui.Slider("Opacity", ref _opacity, 0, 1, "0%", "How see-through the world drawings are.");
         Ui.Slider("Label size", ref _labelScale, .75f, 1.5f, "0.00'x'", "Snaps to the two decimals it shows; Left/Right step by 0.01.");
+        Ui.Slider("Draw range", ref _range, 10, 500, "0 'yd'", "Drags snap to 10 yd here (too few pixels for every yard); Left/Right step by 1.");
     }
 
     private void DrawButtons()
