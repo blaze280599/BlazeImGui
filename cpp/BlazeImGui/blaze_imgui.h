@@ -173,7 +173,7 @@ namespace Blaze
         bool Released(int key);
         /// The first key pressed this frame, or 0 (Shift/Ctrl/Alt report their left/right codes).
         int AnyPressed();
-        /// "Insert", "F5", "Mouse 4", "None".
+        /// "Insert", "F5", "Mouse 4", "Num /", "None"; punctuation keys show the layout's character, US as fallback.
         std::string KeyName(int key);
     }
 

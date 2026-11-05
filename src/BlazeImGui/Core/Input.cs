@@ -36,32 +36,54 @@ public static class Input
         return 0;
     }
 
-    /// <summary>A short display name for a virtual-key code ("Insert", "F5", "Mouse 4", "None").</summary>
+    /// <summary>
+    /// A short display name for a virtual-key code ("Insert", "F5", "Mouse 4", "Num /", "None"). Punctuation keys show
+    /// the character they type on the current keyboard layout ("-", "/", "]" on US), with the US character as fallback.
+    /// </summary>
     public static string KeyName(int key)
     {
         if (key == 0) return "None";
-        if (Enum.IsDefined(typeof(VirtualKey), key))
+        if (Names.TryGetValue(key, out var name)) return name;
+        if (key is >= 0x30 and <= 0x39 or >= 0x41 and <= 0x5A) return ((char)key).ToString();
+        if (key is >= 0x60 and <= 0x69) return $"Num {key - 0x60}";
+        if (key is >= 0x70 and <= 0x87) return $"F{key - 0x6F}";
+        if (Punctuation.TryGetValue(key, out var us))
         {
-            var name = ((VirtualKey)key).ToString();
-            return name switch
-            {
-                "LButton" => "Mouse 1", "RButton" => "Mouse 2", "MButton" => "Mouse 3",
-                "XButton1" => "Mouse 4", "XButton2" => "Mouse 5",
-                "PageUp" => "Page Up", "PageDown" => "Page Down",
-                "LShift" => "L Shift", "RShift" => "R Shift", "LControl" => "L Ctrl", "RControl" => "R Ctrl",
-                "LAlt" => "L Alt", "RAlt" => "R Alt", "CapsLock" => "Caps Lock",
-                _ when name.StartsWith("D") && name.Length == 2 => name[1..],
-                _ when name.StartsWith("NumPad") => "Num " + name[6..],
-                _ => name,
-            };
+            // The layout's unshifted character; the high bit marks a dead key, which still names the key.
+            var typed = (char)(MapVirtualKeyW((uint)key, 2) & 0x7FFF);
+            return typed > ' ' && typed != (char)0x7F ? char.ToUpperInvariant(typed).ToString() : us;
         }
         return $"Key 0x{key:X2}";
     }
+
+    private static readonly Dictionary<int, string> Names = new()
+    {
+        [0x01] = "Mouse 1", [0x02] = "Mouse 2", [0x04] = "Mouse 3", [0x05] = "Mouse 4", [0x06] = "Mouse 5",
+        [0x08] = "Backspace", [0x09] = "Tab", [0x0C] = "Clear", [0x0D] = "Enter", [0x10] = "Shift", [0x11] = "Control",
+        [0x12] = "Alt", [0x13] = "Pause", [0x14] = "Caps Lock", [0x1B] = "Escape", [0x20] = "Space", [0x21] = "Page Up",
+        [0x22] = "Page Down", [0x23] = "End", [0x24] = "Home", [0x25] = "Left", [0x26] = "Up", [0x27] = "Right",
+        [0x28] = "Down", [0x2C] = "Print Screen", [0x2D] = "Insert", [0x2E] = "Delete", [0x5B] = "L Win", [0x5C] = "R Win",
+        [0x5D] = "Menu", [0x6A] = "Num *", [0x6B] = "Num +", [0x6D] = "Num -", [0x6E] = "Num .", [0x6F] = "Num /",
+        [0x90] = "Num Lock", [0x91] = "Scroll Lock", [0xA0] = "L Shift", [0xA1] = "R Shift", [0xA2] = "L Ctrl",
+        [0xA3] = "R Ctrl", [0xA4] = "L Alt", [0xA5] = "R Alt", [0xA6] = "Browser Back", [0xA7] = "Browser Forward",
+        [0xA8] = "Browser Refresh", [0xA9] = "Browser Stop", [0xAA] = "Browser Search", [0xAB] = "Browser Favorites",
+        [0xAC] = "Browser Home", [0xAD] = "Volume Mute", [0xAE] = "Volume Down", [0xAF] = "Volume Up",
+        [0xB0] = "Next Track", [0xB1] = "Previous Track", [0xB2] = "Stop Media", [0xB3] = "Play/Pause", [0xB4] = "Mail",
+        [0xB5] = "Media Select", [0xB6] = "App 1", [0xB7] = "App 2",
+    };
+
+    // OEM keys and the character each types on a US layout.
+    private static readonly Dictionary<int, string> Punctuation = new()
+    {
+        [0xBA] = ";", [0xBB] = "=", [0xBC] = ",", [0xBD] = "-", [0xBE] = ".", [0xBF] = "/", [0xC0] = "`",
+        [0xDB] = "[", [0xDC] = "\\", [0xDD] = "]", [0xDE] = "'", [0xDF] = "OEM 8", [0xE2] = "\\",
+    };
 
     // Shift/Ctrl/Alt report both a generic and a left/right code; the keybind widget keeps the specific one.
     private static bool IsModifierAlias(int key) => key is 0x10 or 0x11 or 0x12;
 
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
+    [DllImport("user32.dll")] private static extern uint MapVirtualKeyW(uint code, uint mapType);
 }
 
 /// <summary>Common Windows virtual-key codes. Cast to int where an API takes a key: <c>(int)VirtualKey.Insert</c>.</summary>

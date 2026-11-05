@@ -570,11 +570,23 @@ std::string Blaze::Input::KeyName(int key)
     struct Named { int key; const char* name; };
     static constexpr Named names[] = {
         { 0x01, "Mouse 1" }, { 0x02, "Mouse 2" }, { 0x04, "Mouse 3" }, { 0x05, "Mouse 4" }, { 0x06, "Mouse 5" },
-        { 0x08, "Back" }, { 0x09, "Tab" }, { 0x0D, "Enter" }, { 0x10, "Shift" }, { 0x11, "Control" }, { 0x12, "Alt" },
-        { 0x13, "Pause" }, { 0x14, "Caps Lock" }, { 0x1B, "Escape" }, { 0x20, "Space" }, { 0x21, "Page Up" },
-        { 0x22, "Page Down" }, { 0x23, "End" }, { 0x24, "Home" }, { 0x25, "Left" }, { 0x26, "Up" }, { 0x27, "Right" },
-        { 0x28, "Down" }, { 0x2D, "Insert" }, { 0x2E, "Delete" }, { 0xA0, "L Shift" }, { 0xA1, "R Shift" },
-        { 0xA2, "L Ctrl" }, { 0xA3, "R Ctrl" }, { 0xA4, "L Alt" }, { 0xA5, "R Alt" },
+        { 0x08, "Backspace" }, { 0x09, "Tab" }, { 0x0C, "Clear" }, { 0x0D, "Enter" }, { 0x10, "Shift" },
+        { 0x11, "Control" }, { 0x12, "Alt" }, { 0x13, "Pause" }, { 0x14, "Caps Lock" }, { 0x1B, "Escape" },
+        { 0x20, "Space" }, { 0x21, "Page Up" }, { 0x22, "Page Down" }, { 0x23, "End" }, { 0x24, "Home" },
+        { 0x25, "Left" }, { 0x26, "Up" }, { 0x27, "Right" }, { 0x28, "Down" }, { 0x2C, "Print Screen" },
+        { 0x2D, "Insert" }, { 0x2E, "Delete" }, { 0x5B, "L Win" }, { 0x5C, "R Win" }, { 0x5D, "Menu" },
+        { 0x6A, "Num *" }, { 0x6B, "Num +" }, { 0x6D, "Num -" }, { 0x6E, "Num ." }, { 0x6F, "Num /" },
+        { 0x90, "Num Lock" }, { 0x91, "Scroll Lock" }, { 0xA0, "L Shift" }, { 0xA1, "R Shift" }, { 0xA2, "L Ctrl" },
+        { 0xA3, "R Ctrl" }, { 0xA4, "L Alt" }, { 0xA5, "R Alt" }, { 0xA6, "Browser Back" }, { 0xA7, "Browser Forward" },
+        { 0xA8, "Browser Refresh" }, { 0xA9, "Browser Stop" }, { 0xAA, "Browser Search" }, { 0xAB, "Browser Favorites" },
+        { 0xAC, "Browser Home" }, { 0xAD, "Volume Mute" }, { 0xAE, "Volume Down" }, { 0xAF, "Volume Up" },
+        { 0xB0, "Next Track" }, { 0xB1, "Previous Track" }, { 0xB2, "Stop Media" }, { 0xB3, "Play/Pause" },
+        { 0xB4, "Mail" }, { 0xB5, "Media Select" }, { 0xB6, "App 1" }, { 0xB7, "App 2" },
+    };
+    // OEM keys and the character each types on a US layout.
+    static constexpr Named punctuation[] = {
+        { 0xBA, ";" }, { 0xBB, "=" }, { 0xBC, "," }, { 0xBD, "-" }, { 0xBE, "." }, { 0xBF, "/" }, { 0xC0, "`" },
+        { 0xDB, "[" }, { 0xDC, "\\" }, { 0xDD, "]" }, { 0xDE, "'" }, { 0xDF, "OEM 8" }, { 0xE2, "\\" },
     };
 
     if (key == 0)
@@ -582,6 +594,18 @@ std::string Blaze::Input::KeyName(int key)
     for (const Named& named : names)
         if (named.key == key)
             return named.name;
+    for (const Named& named : punctuation)
+    {
+        if (named.key != key)
+            continue;
+#ifdef _WIN32
+        // The layout's unshifted character; the high bit marks a dead key, which still names the key.
+        const unsigned typed = MapVirtualKeyW(static_cast<UINT>(key), MAPVK_VK_TO_CHAR) & 0x7FFF;
+        if (typed > ' ' && typed < 0x7F)
+            return std::string(1, static_cast<char>(std::toupper(static_cast<int>(typed))));
+#endif
+        return named.name;
+    }
 
     char text[16];
     if ((key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z'))
